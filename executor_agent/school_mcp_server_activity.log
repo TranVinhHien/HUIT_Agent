@@ -1,0 +1,10 @@
+2025-08-22 09:44:02,732 - INFO - [school_mcp_server.py:97] - Tạo MCP Server cho hệ thống quản lý trường học...
+2025-08-22 09:44:02,735 - DEBUG - [server.py:150] - Initializing server 'school-management-mcp-server'
+2025-08-22 09:44:02,736 - DEBUG - [server.py:391] - Registering handler for ListToolsRequest
+2025-08-22 09:44:02,736 - DEBUG - [server.py:413] - Registering handler for CallToolRequest
+2025-08-22 09:44:02,736 - DEBUG - [server.py:259] - Registering handler for ListResourcesRequest
+2025-08-22 09:44:02,736 - DEBUG - [server.py:293] - Registering handler for ReadResourceRequest
+2025-08-22 09:44:02,736 - DEBUG - [server.py:229] - Registering handler for PromptListRequest
+2025-08-22 09:44:02,736 - DEBUG - [server.py:246] - Registering handler for GetPromptRequest
+2025-08-22 09:44:02,736 - DEBUG - [server.py:274] - Registering handler for ListResourceTemplatesRequest
+2025-08-22 09:44:02,752 - DEBUG - [inmemory_task_store.py:20] - Initializing InMemoryTaskStore

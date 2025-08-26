@@ -1,0 +1,14 @@
+a2a-sdk==0.2.6
+httpx>=0.28.1
+langchain-google-genai>=2.0.10
+langgraph>=0.3.18
+pydantic>=2.10.6
+python-dotenv>=1.1.0
+uvicorn>=0.34.2
+langchain-core
+langchain-community
+google-generativeai
+faiss-cpu
+tiktoken
+langchain
+pyjwt

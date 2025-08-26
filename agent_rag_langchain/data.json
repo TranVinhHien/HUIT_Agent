@@ -1,0 +1,24 @@
+{
+    "data":[
+        {
+            "type":"admin",
+            "permissions":["Cán bộ quản lý"],
+            "description":"Quản lý hệ thống, có quyền truy cập đầy đủ vào tất cả các chức năng và dữ liệu."
+        },
+        {
+            "type":"teacher",
+            "permissions":["Cán bộ quản lý","Giáo viên"],
+            "description":"Giáo viên và quản lý có quyền truy cập vào dữ liệu này"
+        },
+        {
+            "type":"student",
+            "permissions":["Cán bộ quản lý","Học sinh"],
+            "description":"Học sinh có quyền truy cập vào dữ liệu của riêng mình."
+        },
+        {
+            "type":"public",
+            "permissions":["Cán bộ quản lý", "Giáo viên", "Học sinh"],
+            "description":"Mọi người trong tổ chức đều được truy cập vào hệ thống."
+        }
+    ]
+}

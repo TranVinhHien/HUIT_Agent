@@ -1,0 +1,6 @@
+{
+  "session_service": {
+    "type": "db",
+    "db_url": "sqlite:///./sessions_management.db"
+  }
+}
