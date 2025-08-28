@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException,Request
 from pydantic import BaseModel
 from typing import Optional, Dict, Any
+
 from .agent import HostAgent, session_service
 import uuid
 from google.genai import types
@@ -9,14 +10,11 @@ import nest_asyncio
 from datetime import datetime
 from .util import call_agent_async
 from contextlib import asynccontextmanager
+from  .call_api import get_agent_urls,get_agent_urls
 
 AGENT_NAME = "Host_Agent"
 
-friend_agent_urls = [
-            # "http://localhost:10004",  # T2SQL's Agent 
-            "http://192.168.1.124:10002",  # RAG HUIT Agent
-            "http://192.168.1.115:3636",  # Executor's Agent
-        ]
+friend_agent_urls =get_agent_urls()
 print("initializing host agent")
 host = None
 
@@ -71,10 +69,8 @@ class Colors:
 
 # Pydantic models for request/response
 class CreateSessionRequest(BaseModel):
-    session_id: Optional[str] = None
-    app_name: Optional[str] = None
     user_id: Optional[str] = None
-    state: Optional[Dict[str, Any]] = {}
+    user_info: Optional[Dict[str, Any]] = {}
 
 class CreateSessionResponse(BaseModel):
     success: bool
@@ -100,20 +96,27 @@ class ErrorResponse(BaseModel):
     error: str
 
 @app.post("/api/session", response_model=CreateSessionResponse)
-async def create_session(request: CreateSessionRequest):
+async def create_session(request: CreateSessionRequest,raw_request: Request):
     """API để tạo session mới"""
     try:
         # Tạo session_id mới nếu không được cung cấp
         session_id =  str(uuid.uuid4())
         app_name = AGENT_NAME
         user_id = request.user_id 
-        state = request.state or {}
-        
+        # state = request.state or {}
+        headers = raw_request.headers
+        token = headers.get("Authorization", "").replace("Bearer ", "")
+        user_info = request.user_info
+        agent_use = get_agent_urls(token)
         # Tạo session
         new_session =await session_service.create_session(
             app_name=app_name,
             user_id=user_id,
-            state=state,
+            state={
+                "agent_use":agent_use,
+                "user_info":user_info,
+                "lang":"VN"
+                },
             session_id=session_id,
         )
         

@@ -25,14 +25,18 @@ logger = logging.getLogger(__name__)
 
 # Bộ nhớ hội thoại
 memory = MemorySaver()
+load_dotenv()
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+MODEL_NAME = os.getenv("MODEL_NAME")
+K = os.getenv("K")
+SIMILARITY = os.getenv("SIMILARITY")
 
 # Cấu hình API key cho Gemini
-GEMINI_API_KEY = "AIzaSyBB6YENUYxt5nkTDaAj_xO_usbunugUj8o"
+# GEMINI_API_KEY = "AIzaSyBB6YENUYxt5nkTDaAj_xO_usbunugUj8o"
 # token_temp = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoia2hhbmhfMTIzIiwidXNlcm5hbWUiOiJraGFuaCIsInJvbGUiOiJ0ZWFjaGVyIiwiaWF0IjoxNzU1NTY2MzQ3LCJleHAiOjE3NTU2NTI3NDd9.Xzp15UyaDCEZQdccMI6GXWKdigiMbd31HonmTa2nCz0"
 genai.configure(api_key=GEMINI_API_KEY)
 os.environ["GOOGLE_API_KEY"] = GEMINI_API_KEY
-k=5
-similarity=0.65
+
 # Tokenizer cho model GPT-4o (tương tự Gemini)
 encoding = tiktoken.encoding_for_model("gpt-4o")
 data_types=[
@@ -82,7 +86,7 @@ def fetch_context_from_faiss(query: str,file_type:str, token: str, k: int, simil
     Loại bỏ chunk trùng hẳn, xử lý overlap và giới hạn tổng token context.
     """
     logger.info(f"[fetch_context_from_faiss] query='{query}', token='{token}', k={k}, similarity={similarity}, max_tokens={max_tokens}")
-    url = "https://ai-database.bitech.vn/documents/vector/search"
+    url = os.getenv("URL_SEARCH")
     # url = "http://192.168.1.142:8000/documents/vector/search"
     try:
         payload = {
@@ -191,7 +195,7 @@ def get_data(
     start_fetch = time.perf_counter()
     sum_conten=""
     for type in types_for_user:
-        context = fetch_context_from_faiss(query,type,token,k,similarity)
+        context = fetch_context_from_faiss(query,type,token,K,SIMILARITY)
         if not context:
             continue
         sum_conten+= "\n "+context
@@ -237,7 +241,7 @@ def get_data(
     return output_text
 
 # Khởi tạo LLM global
-llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash")
+llm = ChatGoogleGenerativeAI(model=MODEL_NAME)
 
 class ResponseFormat(BaseModel):
     status: Literal["input_required", "completed", "error"] = "completed"

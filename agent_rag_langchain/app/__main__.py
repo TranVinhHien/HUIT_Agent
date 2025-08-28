@@ -16,8 +16,9 @@ from a2a.types import (
 from app.agent import RagSchoolInfo
 from app.agent_executor import RagSchoolInfoExecutor
 from dotenv import load_dotenv
-
+from call_api import get_agent_info
 load_dotenv()
+from urllib.parse import urlparse
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -27,34 +28,61 @@ class MissingAPIKeyError(Exception):
 
 def main():
     """Starts RagSchoolInfo Agent server."""
-    host = "192.168.1.124"
-    port = 10002
+    APP_NAME = "RagSchoolInfo"
+    # APP_NAME = "RagSchoolInfomation"
+
+    url=os.getenv("HOST","http://localhost:10002")
+    # url = "http://localhost:10002"
+    agent_info = get_agent_info(APP_NAME)
+    # parsed = urlparse(agent_info["url"])
+    parsed = urlparse(url)
+    host = parsed.hostname   # localhost
+    port = parsed.port       # 10002
+
+
+    # host = "localhost"   # localhost
+    # port = 10002    # 10002
     try:
         if not os.getenv("GOOGLE_API_KEY"):
             raise MissingAPIKeyError("GOOGLE_API_KEY environment variable not set.")
-
+        
         capabilities = AgentCapabilities(streaming=True, pushNotifications=True)
-        skill = AgentSkill(
-            id="RagSchoolInfo",
-            name="RAG thông tin trường học",
-            description="Giúp tìm kiếm thông tin, chính sách, quy định, hướng dẫn và thông báo của Trường Đại học Công Thương TP.HCM.",
-            tags=["trường học", "chính sách", "quy định", "học phí", "lịch học"],
-            examples=[
-                "Thời gian đóng học phí học kỳ I năm 2025-2026?",
-                "Quy định về học bổng cho sinh viên?",
-                "Lịch thi học kỳ 1 năm 2025?",
-                "giới thiệu khoa Công nghệ thông tin"
-            ],
-        )
+        skills=[]
+        for skill in  agent_info["skills"]:
+            # print(skill)
+
+            item =AgentSkill(
+                id=skill["id"],
+                name=skill["name"],
+                description=skill["description"],
+                tags=skill["tags"],
+                examples=skill["examples"],
+            )
+            # print("*"*50)
+            # print(item)
+            # print("*"*50)
+            skills.append(item)
+        # skill = AgentSkill(
+        #     id="RagSchoolInfo",
+        #     name="RAG thông tin trường học",
+        #     description="Giúp tìm kiếm thông tin, chính sách, quy định, hướng dẫn và thông báo của Trường Đại học Công Thương TP.HCM.",
+        #     tags=["trường học", "chính sách", "quy định", "học phí", "lịch học"],
+        #     examples=[
+        #         "Thời gian đóng học phí học kỳ I năm 2025-2026?",
+        #         "Quy định về học bổng cho sinh viên?",
+        #         "Lịch thi học kỳ 1 năm 2025?",
+        #         "giới thiệu khoa Công nghệ thông tin"
+        #     ],
+        # )
         agent_card = AgentCard(
-            name="RagSchoolInfo",
-            description="Trợ lý RAG cung cấp tất cả thông báo, thông tin về Trường Đại học Công Thương TP.HCM.",
-            url=f"http://{host}:{port}/",
-            version="1.0.0",
+            name=APP_NAME,
+            description=agent_info["description"],
+            url=url,
+            version=agent_info["version"],
             defaultInputModes=RagSchoolInfo.SUPPORTED_CONTENT_TYPES,
             defaultOutputModes=RagSchoolInfo.SUPPORTED_CONTENT_TYPES,
             capabilities=capabilities,
-            skills=[skill],
+            skills=skills,
         )
 
         httpx_client = httpx.AsyncClient()

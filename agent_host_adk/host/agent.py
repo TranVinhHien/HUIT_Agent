@@ -26,7 +26,7 @@ from google.adk.tools.tool_context import ToolContext
 from google.genai import types
 from typing import Any, AsyncIterable, List, Optional  # Đảm bảo import MappingProxyType nếu bạn dùng Python 3.9 trở lên
 from google.adk.sessions import DatabaseSessionService 
-
+import os
 
 from .remote_agent_connection import RemoteAgentConnections
 #######################################################################################
@@ -39,9 +39,12 @@ from .remote_agent_connection import RemoteAgentConnections
 #######################################################################################
 load_dotenv()
 nest_asyncio.apply()
+llm_model = os.getenv("LLM_MODEL")
+db_url = os.getenv("DB_URL")
+
 # MONGO_URI = "sqlite:///./sessions_management.db"  # hoặc mongodb+srv://... nếu Atlas
-MONGO_URI = "mysql+pymysql://root:12345@172.26.127.95/session_db"  # hoặc mongodb+srv://... nếu Atlas
-session_service = DatabaseSessionService(db_url=MONGO_URI) 
+# MONGO_URI = "mysql+pymysql://root:12345@172.26.127.95/session_db"  # hoặc mongodb+srv://... nếu Atlas
+session_service = DatabaseSessionService(db_url=db_url) 
 class HostAgent:
     """The Host agent."""
 
@@ -109,7 +112,7 @@ class HostAgent:
 
     def create_agent(self,name) -> Agent:
         return Agent(
-            model="gemini-2.5-flash",
+            model=llm_model,
             name=name,
             instruction=self.root_instruction,
             description="Bạn là một agent điều phối (orchestrator) chịu trách nhiệm điều hướng các yêu cầu của người dùng tới đúng các Agent khác để sử lý.",
@@ -121,32 +124,8 @@ class HostAgent:
         )
 
     def root_instruction(self, context: ReadonlyContext) -> str:
-        # agent_can_use= context.state.get("agent_use")
         lang= context.state.get("lang")
         user_info= context.state.get("user_info")
-        # text =  f"""
-        #     **Vai trò:** Bạn là một agent điều phối (orchestrator)
-        #     **Nhiệm vụ của bạn:**
-        #     * Phân tích câu hỏi của người dùng để xác định loại dữ liệu cần truy xuất.
-        #     * Chọn đúng agent con phù hợp với yêu cầu truy vấn.
-        #     * Gửi nhiệm vụ tới agent con, nhận kết quả và tổng hợp trả lời cho người dùng.
-        #     * Nếu câu hỏi cần tổng hợp từ nhiều nguồn, hãy phối hợp nhiều agent con.
-        #     * Đảm bảo trả lời đúng, đủ, rõ ràng, không tự suy đoán ngoài dữ liệu nhận được.
-        #     * Luôn trình bày câu trả lời ngắn gọn, dễ hiểu (ưu tiên dạng bullet).
-        #     **Lưu ý:**
-        #     * Chỉ sử dụng các agent được cung cấp để sử lý yêu cầu, không gọi các agent không tồn tại trong <Available Agents>.
-        #     * Không tự tạo dữ liệu hoặc trả lời dựa trên giả định.
-        #     * Xem kĩ mô tả của các agent trong <Available Agents> để lựa chọn đúng Agent để xử lý yêu cầu.
-        #     * Bắt buộc đọc kĩ qua phần <Available Agents> rồi trả về kết quả. 
-        #     * Nội dung có liên quan 1 phần vẫn có thể điều hướng tới các agent để sử lý.
-        #     **Ngày hiện tại (YYYY-MM-DD):** {.now().strftime("%Y-%m-%d")}
-        #     ***Đây là thông tin người dùng trong phiên này:*
-        #     {user_info}
-        #     <Available Agents>
-        #     {self.agents}
-        #     </Available Agents>
-        #     trả lời thông tin người dùng với ngôn ngữ : {lang}
-        # """
         text = f"""
             Vai trò: Bạn là một agent điều phối (orchestrator) của hệ thống Trường Đại học Công Thương TP.HCM (HUIT).
             Người dùng có thể là sinh viên, giảng viên, cán bộ quản lý hoặc người quan tâm đến trường.
@@ -177,13 +156,11 @@ class HostAgent:
 
            Ngày hiện tại (YYYY-MM-DD):** {datetime.now().strftime("%Y-%m-%d")}
             Thông tin người dùng:
-            {user_info}datetime
-
+            {user_info}
             <Available Agents>
             {self.agents}
             </Available Agents>
         """
-        print(text)
         return text
        
     #Người dùng có quyền để truy cập tới các agent: {agent_can_use}. nếu yêu cầu của người dùng có liên quan tới agent  không nằm trong các agent có thể sử dụng thì trả về bạn không có quyền truy cập.
@@ -287,7 +264,7 @@ class HostAgent:
         user_info= tool_context.state._value.get("user_info")
         
         if agent_name not in agent_can_use:
-            return f"Bạn không đủ quyền để truy cập Agent {agent_name} ."
+            return f"Bạn không đủ quyền để truy cập Agent {agent_name} để thực hiện yêu cầu."
         # Simplified task and context ID management
         state = tool_context.state
         print("state\n",state)
@@ -351,34 +328,34 @@ class HostAgent:
 
 
 
-def _get_initialized_host_agent_sync():
-    """Synchronously creates and initializes the HostAgent."""
+# def _get_initialized_host_agent_sync():
+#     """Synchronously creates and initializes the HostAgent."""
 
-    async def _async_main():
-        # Hardcoded URLs for the  agents
-        friend_agent_urls = [
-            "http://localhost:10004",  # T2SQL's Agent
-            "http://localhost:10002",  # RAG Shoppe Agent
-        ]
+#     async def _async_main():
+#         # Hardcoded URLs for the  agents
+#         friend_agent_urls = [
+#             "http://localhost:10004",  # T2SQL's Agent
+#             "http://localhost:10002",  # RAG Shoppe Agent
+#         ]
         
-        print("initializing host agent")
-        hosting_agent_instance = await HostAgent.create(
-            remote_agent_addresses=friend_agent_urls
-        )
-        print("HostAgent initialized")
-        return hosting_agent_instance.create_agent("Host_Agent")
+#         print("initializing host agent")
+#         hosting_agent_instance = await HostAgent.create(
+#             remote_agent_addresses=friend_agent_urls
+#         )
+#         print("HostAgent initialized")
+#         return hosting_agent_instance.create_agent("Host_Agent")
 
-    try:
-        return asyncio.run(_async_main())
-    except RuntimeError as e:
-        if "asyncio.run() cannot be called from a running event loop" in str(e):
-            print(
-                f"Warning: Could not initialize HostAgent with asyncio.run(): {e}. "
-                "This can happen if an event loop is already running (e.g., in Jupyter). "
-                "Consider initializing HostAgent within an async function in your application."
-            )
-        else:
-            raise
+#     try:
+#         return asyncio.run(_async_main())
+#     except RuntimeError as e:
+#         if "asyncio.run() cannot be called from a running event loop" in str(e):
+#             print(
+#                 f"Warning: Could not initialize HostAgent with asyncio.run(): {e}. "
+#                 "This can happen if an event loop is already running (e.g., in Jupyter). "
+#                 "Consider initializing HostAgent within an async function in your application."
+#             )
+#         else:
+#             raise
 
 
-# root_agent = _get_initialized_host_agent_sync()
+# # root_agent = _get_initialized_host_agent_sync()
