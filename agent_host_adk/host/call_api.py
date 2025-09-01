@@ -5,7 +5,7 @@ from typing import List, Dict, Any, Optional
 BASE_URL = os.getenv("URL_API_APP")
 ROUTER= {
     "get_agent_urls": f"{BASE_URL}/agents/list",
-    "get_available_agents": f"{BASE_URL}/roles/enable_agent"
+    "get_available_agents": f"{BASE_URL}/agent_roles/enable_agent"
 }
 
 def get_agent_urls() -> List[str]:
@@ -68,10 +68,10 @@ def get_available_agents(token: str) -> List[str]:
         
         data = response.json()
         
-        if "agent_use" not in data:
+        if "state" not in data:
             raise ValueError("API response doesn't contain 'agent_use' key")
         
-        return data["agent_use"]
+        return data["state"]["agent_use"]
     
     except requests.RequestException as e:
         # Log the error or handle it as needed

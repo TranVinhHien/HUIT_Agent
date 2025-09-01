@@ -38,3 +38,8 @@ class RemoteAgentConnections:
         self, message_request: SendMessageRequest
     ) -> SendMessageResponse:
         return await self.agent_client.send_message(message_request)
+    async def send_message_stream(
+        self, message_request: SendMessageRequest
+    ):
+        async for chunk in self.agent_client.send_message_streaming(message_request):
+            yield chunk

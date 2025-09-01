@@ -10,11 +10,15 @@ import nest_asyncio
 from datetime import datetime
 from .util import call_agent_async
 from contextlib import asynccontextmanager
-from  .call_api import get_agent_urls,get_agent_urls
+from  .call_api import get_agent_urls,get_available_agents
 
 AGENT_NAME = "Host_Agent"
 
-friend_agent_urls =get_agent_urls()
+# friend_agent_urls = get_agent_urls()
+friend_agent_urls = [
+    # "http://192.168.1.163:3636"
+    "http://localhost:3636"
+]
 print("initializing host agent")
 host = None
 
@@ -107,7 +111,7 @@ async def create_session(request: CreateSessionRequest,raw_request: Request):
         headers = raw_request.headers
         token = headers.get("Authorization", "").replace("Bearer ", "")
         user_info = request.user_info
-        agent_use = get_agent_urls(token)
+        agent_use = get_available_agents(token)
         # Tạo session
         new_session =await session_service.create_session(
             app_name=app_name,
@@ -152,7 +156,11 @@ async def send_message(request: SendMessageRequest,raw_request: Request):
         response = await call_agent_async(host.runner, request.user_id, session_id, request.message, token)
 
         if not response:
-            return "Lỗi hệ thống. vui lòng thử lại"
+            return SendMessageResponse(
+                success=False,
+                response="Lỗi hệ thống. Vui lòng thử lại",
+                session_id=session_id
+            )
         return SendMessageResponse(
             success=True,
             response=response,

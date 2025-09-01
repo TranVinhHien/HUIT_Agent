@@ -2,7 +2,6 @@ from google.genai import types
 from google.adk.runners import Runner
 from google.adk.sessions import BaseSessionService 
 from google.adk.events import Event
-
 # ANSI color codes for terminal output
 class Colors:
     RESET = "\033[0m"
@@ -149,7 +148,7 @@ async def call_agent_async(runner: Runner, user_id:str, session_id:str, query: s
     
     try:
         async for event in runner.run_async(
-            user_id=user_id, session_id=session_id, new_message=content,state_delta=state_delta
+            user_id=user_id, session_id=session_id, new_message=content,state_delta=state_delta,
         ):
             # Process each event and get the final response if available
             response = await process_agent_response(event)

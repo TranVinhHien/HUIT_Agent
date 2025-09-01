@@ -71,10 +71,12 @@ class HostAgent:
             for address in remote_agent_addresses:
                 card_resolver = A2ACardResolver(client, address)
                 try:
+                    
                     card = await card_resolver.get_agent_card()
                     remote_connection = RemoteAgentConnections(
                         agent_card=card, agent_url=address
                     )
+                    
                     self.remote_agent_connections[card.name] = remote_connection
                     self.cards[card.name] = card
                 except httpx.ConnectError as e:
@@ -118,8 +120,6 @@ class HostAgent:
             description="Bạn là một agent điều phối (orchestrator) chịu trách nhiệm điều hướng các yêu cầu của người dùng tới đúng các Agent khác để sử lý.",
             tools=[
                 self.send_message,
-                # book_pickleball_court,
-                # list_court_availabilities,
             ],
         )
 
@@ -252,40 +252,17 @@ class HostAgent:
             return(f"Không {agent_name} tìm thấy agent phù hợp để thực hiện yêu cầu")
         client = self.remote_agent_connections[agent_name]
         token= tool_context.state["token"]
-        #raise ValueError("\n\n\n\n token:",token,"\n\n\n\n")
         if not client:
             return("Agent {} không khả dụng".format(agent_name))
-        # if True:
-        #     raise NotImplementedError(f"\n\n\n\n\n\n\n token \n\n\n\n\n\n\n current_state:{tool_context.__dict__}  ")
-
-        # Lấy user_role từ state của tool_context
         agent_can_use= tool_context.state._value.get("agent_use")
         lang= tool_context.state._value.get("lang")
         user_info= tool_context.state._value.get("user_info")
-        
         if agent_name not in agent_can_use:
             return f"Bạn không đủ quyền để truy cập Agent {agent_name} để thực hiện yêu cầu."
-        # Simplified task and context ID management
         state = tool_context.state
-        print("state\n",state)
         task_id = state.get("task_id", str(uuid.uuid4()))
         context_id = state.get("context_id", str(uuid.uuid4()))
         message_id = str(uuid.uuid4())
-        # message_from_host = f"""
-        # Đây là người dùng có tên='{user_info.get('full_name', 'Người dùng không xác định')}', email:'{user_info.get('email', 'Không xác định')}', vai trò:'{user_info.get('role', 'Không xác định')}' và user_id='{user_info.get("user_ID","Không xác định")}'.
-        # Họ đã gửi câu hỏi: {task}
-        # bạn hãy trả lời câu hỏi này bằng tiếng {lang}
-        # """
-        # "user_info":{
-        #     "full_name":"Hoàng Hữu Quân",
-        #     "email":"gv1001@school.edu.vn",
-        #     "user_ID":6,
-        #     "role":"Giáo viên",
-        #     "StudentCode":"gv1001"
-        # },
-        # token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJmcmVzaCI6ZmFsc2UsImlhdCI6MTc1NTU3NTY1MywianRpIjoiZGNmYTU1YjctOTVjOC00YWFlLWFhODgtZDc0MmZhOTgzNjM3IiwidHlwZSI6ImFjY2VzcyIsInN1YiI6IjQiLCJuYmYiOjE3NTU1NzU2NTMsImV4cCI6MTc1NTU3OTI1MywidXNlcm5hbWUiOiJ0ZWFjaGVyMDAxIiwidXNlcl90eXBlIjoiR2lcdTAwZTFvIHZpXHUwMGVhbiIsImZ1bGxfbmFtZSI6IlRTLiBMXHUwMGVhIFZcdTAxMDNuIENcdTAxYjBcdTFlZGRuZyJ9.UJTjbO-gcyGUhLhiwfYtr4riNpxy-xft4QNoh7cl2W0"
-        #token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJmcmVzaCI6ZmFsc2UsImlhdCI6MTc1NTU4OTcwMCwianRpIjoiNjY3MWY4YmQtYjY4NC00MTcyLTllMDUtYjIyODgxOGE1OGM0IiwidHlwZSI6ImFjY2VzcyIsInN1YiI6IjYiLCJuYmYiOjE3NTU1ODk3MDAsImV4cCI6MTc1NTU5MzMwMCwidXNlcm5hbWUiOiJndjEwMDEiLCJ1c2VyX3R5cGUiOiJHaVx1MDBlMW8gdmlcdTAwZWFuIiwiZnVsbF9uYW1lIjoiSG9cdTAwZTBuZyBIXHUxZWVmdSBRdVx1MDBlMm4ifQ.Essu9GP0JVU5uV2RL_ZqghmxcUeQ04hBanzAehta_r8"
-        print("message_from_host",task)
         payload = {
             "message": {
                 "role": "user",
@@ -301,12 +278,12 @@ class HostAgent:
                 "contextId": context_id,
             },
         }
-
         message_request = SendMessageRequest(
             id=message_id, params=MessageSendParams.model_validate(payload)
         )
+        # stream =  client.send_message_stream(message_request)
         send_response: SendMessageResponse = await client.send_message(message_request)
-
+    
         if not isinstance(
             send_response.root, SendMessageSuccessResponse
         ) or not isinstance(send_response.root.result, Task):
@@ -315,14 +292,13 @@ class HostAgent:
 
         response_content = send_response.root.model_dump_json(exclude_none=True)
         json_content = json.loads(response_content)
-
+        # raise NotImplementedError(f"Streaming not implemented yet. Current state: {json_content}")
         resp = []
         if json_content.get("result", {}).get("artifacts"):
             for artifact in json_content["result"]["artifacts"]:
                 if artifact.get("parts"):
                     resp.extend(artifact["parts"])
         return resp
-
 
 
 
