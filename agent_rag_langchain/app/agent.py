@@ -32,8 +32,6 @@ K = os.getenv("K")
 SIMILARITY = os.getenv("SIMILARITY")
 
 # Cấu hình API key cho Gemini
-# GEMINI_API_KEY = "AIzaSyBB6YENUYxt5nkTDaAj_xO_usbunugUj8o"
-# token_temp = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoia2hhbmhfMTIzIiwidXNlcm5hbWUiOiJraGFuaCIsInJvbGUiOiJ0ZWFjaGVyIiwiaWF0IjoxNzU1NTY2MzQ3LCJleHAiOjE3NTU2NTI3NDd9.Xzp15UyaDCEZQdccMI6GXWKdigiMbd31HonmTa2nCz0"
 genai.configure(api_key=GEMINI_API_KEY)
 os.environ["GOOGLE_API_KEY"] = GEMINI_API_KEY
 

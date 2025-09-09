@@ -1,3 +1,0 @@
-adk 
-mcp
-aiohttp

@@ -33,7 +33,7 @@ from .remote_agent_connection import RemoteAgentConnections
 #############                                                             #############
 #############                                                             #############
 #############                                                             #############
-############# uv run uvicorn host:app --host 0.0.0.0 --port 8000 --reload #############
+############# uv run uvicorn host:app --host 0.0.0.0 --port 9000 --reload #############
 #############                                                             #############
 #############                                                             #############
 #######################################################################################
@@ -42,8 +42,6 @@ nest_asyncio.apply()
 llm_model = os.getenv("LLM_MODEL")
 db_url = os.getenv("DB_URL")
 
-# MONGO_URI = "sqlite:///./sessions_management.db"  # hoặc mongodb+srv://... nếu Atlas
-# MONGO_URI = "mysql+pymysql://root:12345@172.26.127.95/session_db"  # hoặc mongodb+srv://... nếu Atlas
 session_service = DatabaseSessionService(db_url=db_url) 
 class HostAgent:
     """The Host agent."""
@@ -60,12 +58,8 @@ class HostAgent:
         self.runner = Runner(
             app_name=self._agent.name,
             agent=self._agent,
-            # artifact_service=InMemoryArtifactService(),
             session_service=session_service,
-            # session_service=InMemorySessionService(),
-            # memory_service=InMemoryMemoryService(),
         )
-#python -m google.adk.api_server --session-service-type db --session-service-db-url "sqlite:///./sessions_management.db"
     async def _async_init_components(self, remote_agent_addresses: List[str]):
         async with httpx.AsyncClient(timeout=30) as client:
             for address in remote_agent_addresses:
@@ -129,29 +123,19 @@ class HostAgent:
         text = f"""
             Vai trò: Bạn là một agent điều phối (orchestrator) của hệ thống Trường Đại học Công Thương TP.HCM (HUIT).
             Người dùng có thể là sinh viên, giảng viên, cán bộ quản lý hoặc người quan tâm đến trường.
-
             Nhiệm vụ:
-            - Quan trọng nhất: chọn đúng agent trong <Available Agents> để xử lý yêu cầu, gọi qua hàm send_message.
-            - Phải đọc kỹ phần <Available Agents> trước khi làm gì.
-            - Phân tích câu hỏi, so khớp với mô tả/kỹ năng của agent => chọn agent phù hợp nhất.
-            - Chỉ gọi agent có trong <Available Agents>. KHÔNG được tự tạo dữ liệu, KHÔNG đoán mò.
-            - Khi đã chọn agent, gửi ngay yêu cầu bằng send_message và trả lại kết quả cho người dùng. KHÔNG xử lý hay viết lại nội dung trả về.
-            - Nếu agent trả về rỗng, thử các agent khác trước khi thông báo "không tìm thấy thông tin".
-
-            Yêu cầu trả lời (ngôn ngữ {lang}):
-            - Ngắn gọn, rõ ràng, dễ hiểu.
-            - Luôn ghi rõ agent nào đã được gọi.
-            - Nếu tất cả agent đều không có dữ liệu, báo: "Không tìm thấy thông tin phù hợp trong hệ thống." kèm 1–2 gợi ý (ví dụ: cung cấp thêm từ khóa, bối cảnh).
+            Nhiệm vụ duy nhất của bạn là chọn đúng agent trong <Available Agents> để xử lý yêu cầu, gọi qua hàm send_message.
+            - Phải đọc kỹ phần <Available Agents> trước khi thực hiện gọi hàm send_message.
+            - Chỉ gọi agent có trong <Available Agents>. Không tự trả lời câu hỏi.
+            - Yêu cầu trả lời (ngôn ngữ {lang}):
+            - Nếu tất cả agent sau quá trình gọi tới đều không có dữ liệu, báo: "Không tìm thấy thông tin phù hợp trong hệ thống.".
 
             Quy tắc xử lý:
             1) Phân tích câu hỏi → xác định từ khóa.
             2) Đọc kỹ <Available Agents> → chọn agent phù hợp.
             3) Gọi send_message tới agent đó.
-            4) Trả ngay kết quả agent trả về cho người dùng.không chế biến lại kết quả trả về.Không thay đổi bất cứ thông tin nào trong kết quả kể cả dấu".".
-
             Lưu ý: 
             - KHÔNG trả lời khi chưa gọi agent.
-            - KHÔNG suy đoán ngoài dữ liệu.
             - Ưu tiên tốc độ: chọn agent nhanh, gọi ngay, trả kết quả thẳng.
 
            Ngày hiện tại (YYYY-MM-DD):** {datetime.now().strftime("%Y-%m-%d")}
@@ -162,11 +146,6 @@ class HostAgent:
             </Available Agents>
         """
         return text
-       
-    #Người dùng có quyền để truy cập tới các agent: {agent_can_use}. nếu yêu cầu của người dùng có liên quan tới agent  không nằm trong các agent có thể sử dụng thì trả về bạn không có quyền truy cập.
-
-
-
     async def stream(
         self,
         query: str,
@@ -192,35 +171,22 @@ class HostAgent:
                 session_id=session_id,
             )
         
-        # --- Cập nhật session.state với initial_state_delta ---
-        # Đây là bước quan trọng để đảm bảo stateDelta được lưu vào session.state
-        # và từ đó có thể truy cập qua tool_context.state
         if initial_state_delta:
-            # Lấy trạng thái hiện tại dưới dạng một dict có thể sửa đổi.
-            # Lưu ý: session.state là MappingProxyType, nên cần chuyển đổi nó trước.
-            # ADK sẽ tự động chuyển đổi lại thành MappingProxyType khi lưu.
             current_session_state = dict(session.state)
             current_session_state.update(initial_state_delta) # Cập nhật state với delta
             
-            # Lưu session đã cập nhật vào session service
-            # Bạn chỉ cần truyền một dictionary thông thường vào update_session
             await self.runner.session_service.__update_session_state(
                 app_name=self._agent.name,
                 user_id=self._user_id,
                 session_id=session.id,
                 state=current_session_state, # Truyền dict đã sửa đổi vào đây
             )
-            # Sau khi update_session, session object của bạn sẽ được làm mới
-            # hoặc bạn có thể cần lấy lại session từ service nếu bạn muốn làm việc với state đã cập nhật ngay lập tức.
-            # Tuy nhiên, trong ngữ cảnh này, runner sẽ đọc state mới.
         # --------------------------------------------------------
 
         async for event in self.runner.run_async(
             user_id=self._user_id,
             session_id=session.id,
             new_message=content,
-            # QUAN TRỌNG: Truyền state_delta trực tiếp vào run_async
-            # Điều này đảm bảo runner xử lý delta đúng cách và truyền vào tool_context
             state_delta=initial_state_delta 
         ):
             if event.is_final_response():
@@ -257,12 +223,19 @@ class HostAgent:
         agent_can_use= tool_context.state._value.get("agent_use")
         lang= tool_context.state._value.get("lang")
         user_info= tool_context.state._value.get("user_info")
+        # check token có invalid không
+        # check agent có thể dùng
         if agent_name not in agent_can_use:
             return f"Bạn không đủ quyền để truy cập Agent {agent_name} để thực hiện yêu cầu."
+        if token is None or token == "":
+            return "Token không hợp lệ. Vui lòng đăng nhập lại."
+        if user_info is None or user_info == "":
+            return "Thông tin người dùng không hợp lệ. Vui lòng đăng nhập lại."
         state = tool_context.state
         task_id = state.get("task_id", str(uuid.uuid4()))
         context_id = state.get("context_id", str(uuid.uuid4()))
         message_id = str(uuid.uuid4())
+
         payload = {
             "message": {
                 "role": "user",
@@ -281,9 +254,8 @@ class HostAgent:
         message_request = SendMessageRequest(
             id=message_id, params=MessageSendParams.model_validate(payload)
         )
-        # stream =  client.send_message_stream(message_request)
         send_response: SendMessageResponse = await client.send_message(message_request)
-    
+
         if not isinstance(
             send_response.root, SendMessageSuccessResponse
         ) or not isinstance(send_response.root.result, Task):
@@ -292,46 +264,14 @@ class HostAgent:
 
         response_content = send_response.root.model_dump_json(exclude_none=True)
         json_content = json.loads(response_content)
-        # raise NotImplementedError(f"Streaming not implemented yet. Current state: {json_content}")
         resp = []
         if json_content.get("result", {}).get("artifacts"):
             for artifact in json_content["result"]["artifacts"]:
                 if artifact.get("parts"):
                     resp.extend(artifact["parts"])
+                    tool_context.actions.skip_summarization = True
+                    for part in artifact["parts"]:
+                        if part.get("file"):
+                            tool_context.actions.skip_summarization = True
+                            pass
         return resp
-
-
-
-
-
-# def _get_initialized_host_agent_sync():
-#     """Synchronously creates and initializes the HostAgent."""
-
-#     async def _async_main():
-#         # Hardcoded URLs for the  agents
-#         friend_agent_urls = [
-#             "http://localhost:10004",  # T2SQL's Agent
-#             "http://localhost:10002",  # RAG Shoppe Agent
-#         ]
-        
-#         print("initializing host agent")
-#         hosting_agent_instance = await HostAgent.create(
-#             remote_agent_addresses=friend_agent_urls
-#         )
-#         print("HostAgent initialized")
-#         return hosting_agent_instance.create_agent("Host_Agent")
-
-#     try:
-#         return asyncio.run(_async_main())
-#     except RuntimeError as e:
-#         if "asyncio.run() cannot be called from a running event loop" in str(e):
-#             print(
-#                 f"Warning: Could not initialize HostAgent with asyncio.run(): {e}. "
-#                 "This can happen if an event loop is already running (e.g., in Jupyter). "
-#                 "Consider initializing HostAgent within an async function in your application."
-#             )
-#         else:
-#             raise
-
-
-# # root_agent = _get_initialized_host_agent_sync()

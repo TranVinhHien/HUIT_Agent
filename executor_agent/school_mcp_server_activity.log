@@ -1,10 +1,43 @@
-2025-08-27 16:42:43,275 - INFO - [school_mcp_server.py:97] - Tạo MCP Server cho hệ thống quản lý trường học...
-2025-08-27 16:42:43,279 - DEBUG - [server.py:150] - Initializing server 'school-management-mcp-server'
-2025-08-27 16:42:43,279 - DEBUG - [server.py:391] - Registering handler for ListToolsRequest
-2025-08-27 16:42:43,280 - DEBUG - [server.py:413] - Registering handler for CallToolRequest
-2025-08-27 16:42:43,280 - DEBUG - [server.py:259] - Registering handler for ListResourcesRequest
-2025-08-27 16:42:43,280 - DEBUG - [server.py:293] - Registering handler for ReadResourceRequest
-2025-08-27 16:42:43,280 - DEBUG - [server.py:229] - Registering handler for PromptListRequest
-2025-08-27 16:42:43,281 - DEBUG - [server.py:246] - Registering handler for GetPromptRequest
-2025-08-27 16:42:43,281 - DEBUG - [server.py:274] - Registering handler for ListResourceTemplatesRequest
-2025-08-27 16:42:43,309 - DEBUG - [inmemory_task_store.py:20] - Initializing InMemoryTaskStore
+2025-09-08 08:38:59,276 - INFO - [school_mcp_server.py:102] - Tạo MCP Server cho hệ thống quản lý trường học...
+2025-09-08 08:38:59,281 - DEBUG - [server.py:150] - Initializing server 'school-management-mcp-server'
+2025-09-08 08:38:59,282 - DEBUG - [server.py:391] - Registering handler for ListToolsRequest
+2025-09-08 08:38:59,282 - DEBUG - [server.py:413] - Registering handler for CallToolRequest
+2025-09-08 08:38:59,283 - DEBUG - [server.py:259] - Registering handler for ListResourcesRequest
+2025-09-08 08:38:59,283 - DEBUG - [server.py:293] - Registering handler for ReadResourceRequest
+2025-09-08 08:38:59,283 - DEBUG - [server.py:229] - Registering handler for PromptListRequest
+2025-09-08 08:38:59,284 - DEBUG - [server.py:246] - Registering handler for GetPromptRequest
+2025-09-08 08:38:59,284 - DEBUG - [server.py:274] - Registering handler for ListResourceTemplatesRequest
+2025-09-08 08:38:59,311 - INFO - [school_mcp_server.py:423] - Khởi động School Management MCP Server qua stdio...
+2025-09-08 08:38:59,311 - DEBUG - [proactor_events.py:631] - Using proactor: IocpProactor
+2025-09-08 08:38:59,319 - INFO - [school_mcp_server.py:414] - MCP Stdio Server: Bắt đầu handshake với client...
+2025-09-08 08:38:59,333 - DEBUG - [server.py:513] - Received message: root=InitializedNotification(method='notifications/initialized', params=None, jsonrpc='2.0')
+2025-09-08 08:38:59,334 - DEBUG - [server.py:513] - Received message: <mcp.shared.session.RequestResponder object at 0x000001D48EAD9BD0>
+2025-09-08 08:38:59,334 - INFO - [server.py:558] - Processing request of type ListToolsRequest
+2025-09-08 08:38:59,335 - DEBUG - [server.py:560] - Dispatching request of type ListToolsRequest
+2025-09-08 08:38:59,337 - DEBUG - [server.py:603] - Response sent
+2025-09-08 08:39:01,970 - DEBUG - [server.py:513] - Received message: <mcp.shared.session.RequestResponder object at 0x000001D48EAD9D10>
+2025-09-08 08:39:01,970 - INFO - [server.py:558] - Processing request of type CallToolRequest
+2025-09-08 08:39:01,971 - DEBUG - [server.py:560] - Dispatching request of type CallToolRequest
+2025-09-08 08:39:01,971 - DEBUG - [school_mcp_server.py:83] - Thực hiện request: GET https://ai-api.bitech.vn/api/teacher/teaching-schedule với auth_required=True
+2025-09-08 08:39:02,330 - DEBUG - [server.py:603] - Response sent
+2025-09-08 08:39:02,337 - DEBUG - [server.py:513] - Received message: <mcp.shared.session.RequestResponder object at 0x000001D48D3F02B0>
+2025-09-08 08:39:02,337 - INFO - [server.py:558] - Processing request of type ListToolsRequest
+2025-09-08 08:39:02,338 - DEBUG - [server.py:560] - Dispatching request of type ListToolsRequest
+2025-09-08 08:39:02,338 - DEBUG - [server.py:603] - Response sent
+2025-09-08 08:47:25,684 - DEBUG - [server.py:513] - Received message: <mcp.shared.session.RequestResponder object at 0x000001D48D22F230>
+2025-09-08 08:47:25,687 - INFO - [server.py:558] - Processing request of type ListToolsRequest
+2025-09-08 08:47:25,688 - DEBUG - [server.py:560] - Dispatching request of type ListToolsRequest
+2025-09-08 08:47:25,692 - DEBUG - [server.py:603] - Response sent
+2025-09-08 08:47:31,913 - DEBUG - [server.py:513] - Received message: <mcp.shared.session.RequestResponder object at 0x000001D48EACE330>
+2025-09-08 08:47:31,914 - INFO - [server.py:558] - Processing request of type CallToolRequest
+2025-09-08 08:47:31,915 - DEBUG - [server.py:560] - Dispatching request of type CallToolRequest
+2025-09-08 08:47:31,916 - INFO - [school_mcp_server.py:121] - Tạo MCP Server cho hệ thống quản lý trường học... Token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJmcmVzaCI6ZmFsc2UsImlhdCI6MTc1NzI5NTQwNCwianRpIjoiODVkOWEzZjMtMWU5Zi00ZDE3LWE3NTItZmJlMTk0MWM3MzhkIiwidHlwZSI6ImFjY2VzcyIsInN1YiI6IjI0IiwibmJmIjoxNzU3Mjk1NDA0LCJleHAiOjE3NTcyOTkwMDQsInVzZXJuYW1lIjoiZ3YxMDE5IiwidXNlcl90eXBlIjoiR2lcdTAwZTFvIHZpXHUwMGVhbiIsImZ1bGxfbmFtZSI6Ilx1MDExMFx1MWViN25nIEhcdTFlZWZ1IEFuaCIsImRlcGFydG1lbnQiOiJLaG9hIGhcdTFlY2RjIG1cdTAwZTF5IHRcdTAwZWRuaCJ9.5n53P4Kgv9CiVgwlyU4zP0k_Gxu6crlGjhs5It-J6pQ
+2025-09-08 08:47:31,916 - INFO - [school_mcp_server.py:122] - get_profile: accessToken=<class 'str'>
+2025-09-08 08:47:31,917 - DEBUG - [school_mcp_server.py:83] - Thực hiện request: GET https://ai-api.bitech.vn/api/auth/profile với auth_required=True
+2025-09-08 08:47:32,249 - DEBUG - [server.py:603] - Response sent
+2025-09-08 08:47:32,266 - DEBUG - [server.py:513] - Received message: <mcp.shared.session.RequestResponder object at 0x000001D48E9678A0>
+2025-09-08 08:47:32,267 - INFO - [server.py:558] - Processing request of type ListToolsRequest
+2025-09-08 08:47:32,268 - DEBUG - [server.py:560] - Dispatching request of type ListToolsRequest
+2025-09-08 08:47:32,269 - DEBUG - [server.py:603] - Response sent
+2025-09-08 08:47:50,872 - INFO - [school_mcp_server.py:420] - MCP Stdio Server: Kết thúc hoặc client đã ngắt kết nối.
+2025-09-08 08:47:50,880 - INFO - [school_mcp_server.py:433] - MCP Server (stdio) đã thoát.

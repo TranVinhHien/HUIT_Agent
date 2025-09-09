@@ -1,7 +1,7 @@
 import os
 import requests
 import json
-from typing import List, Dict, Any, Optional
+from typing import Dict, Any
 from dotenv import load_dotenv
 load_dotenv()
 BASE_URL = os.getenv("URL_API_APP")
@@ -21,7 +21,6 @@ def get_agent_info(agent_name: str) -> Dict[str, Any]:
     """
     api_url = ROUTER.get("agent_detail")
     try:
-        #print("api_url+agent_name",api_url+agent_name)
         response = requests.get(api_url+agent_name)
         response.raise_for_status()  # Raises an exception for 4XX/5XX responses
         

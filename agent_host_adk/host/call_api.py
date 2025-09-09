@@ -3,9 +3,11 @@ import requests
 import json
 from typing import List, Dict, Any, Optional
 BASE_URL = os.getenv("URL_API_APP")
+URL_API_SYSTEM = os.getenv("URL_API_SYSTEM")
 ROUTER= {
     "get_agent_urls": f"{BASE_URL}/agents/list",
-    "get_available_agents": f"{BASE_URL}/agent_roles/enable_agent"
+    "get_available_agents": f"{BASE_URL}/agent_roles/enable_agent",
+    "get_user_info": f"{URL_API_SYSTEM}/api/auth/profile"
 }
 
 def get_agent_urls() -> List[str]:
@@ -40,6 +42,37 @@ def get_agent_urls() -> List[str]:
         print(f"Error parsing API response: {str(e)}")
         raise
 
+def get_user_info(token: str) -> Optional[Dict[str, Any]]:
+    """
+    Calls the API endpoint to get user information.
+
+    Args:
+        token (str): Authentication token to include in the request header
+
+    Returns:
+        Optional[Dict[str, Any]]: A dictionary containing user information, or None if not found
+
+    Raises:
+        requests.RequestException: If there's an error with the API request
+        ValueError: If the API returns invalid data
+    """
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
+    try:
+        response = requests.get(ROUTER.get("get_user_info"), headers=headers)
+        response.raise_for_status()
+
+        data = response.json()
+        return data.get("user")
+
+    except requests.RequestException as e:
+        print(f"Error calling user info API: {str(e)}")
+        raise
+    except (json.JSONDecodeError, ValueError) as e:
+        print(f"Error parsing API response: {str(e)}")
+        raise
 
 def get_available_agents(token: str) -> List[str]:
     """

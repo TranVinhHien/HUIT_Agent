@@ -1,0 +1,23 @@
+# This file defines the workspace for the a2a-rag-agent project.
+# It tells uv that this project is a monorepo containing multiple packages.
+
+[project]
+name = "a2a-chart-agent"
+version = "0.1.0"
+description = "A multi-agent system for HUIT."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    # Shared ADK & A2A Dependencies
+    "google-adk>=1.2.1",
+    "a2a-sdk==0.2.6",
+    "nest-asyncio>=1.6.0",
+    "python-dotenv",
+    "click",
+    "uvicorn",
+    "google-generativeai",
+    "httpx",
+    "aiohttp",
+    "matplotlib",
+    "pandas",
+]

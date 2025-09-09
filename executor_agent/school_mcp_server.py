@@ -9,13 +9,12 @@ from typing import Dict, Any, Optional
 from dotenv import load_dotenv
 
 from mcp.server.fastmcp import FastMCP
-from google.adk.tools.tool_context import ToolContext
-
 from mcp.server.stdio import stdio_server
 import sys
+import json
+
 load_dotenv()
 
-# --- Logging Setup ---
 
 # --- Logging Setup ---
 LOG_FILE_PATH = os.path.join(os.path.dirname(__file__), "school_mcp_server_activity.log")
@@ -47,7 +46,6 @@ logger.addHandler(file_handler)
 API_BASE_URL = "https://ai-api.bitech.vn/api"
 # API_BASE_URL = "http://localhost:5000/api"
 
-ACCESS_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJmcmVzaCI6ZmFsc2UsImlhdCI6MTc1NTc4NTk4NywianRpIjoiMDIxOGMwNWEtY2RhMy00NjMxLThlNjYtOThmZjUzOTZmNzYwIiwidHlwZSI6ImFjY2VzcyIsInN1YiI6IjI3IiwibmJmIjoxNzU1Nzg1OTg3LCJleHAiOjE3NTU3ODk1ODcsInVzZXJuYW1lIjoiZ3YxMDIyIiwidXNlcl90eXBlIjoiR2lcdTAwZTFvIHZpXHUwMGVhbiIsImZ1bGxfbmFtZSI6IlBoXHUxZWExbSBNXHUxZWY5IEdpYW5nIn0.j2-w8yVawseEnOpq3RV9Z5-e6Q4_Lx1xPKnsOSThn64"
 # Sửa đổi hàm này để không cần tool_context
 async def make_api_request(
     method: str, 
@@ -107,11 +105,6 @@ async def get_profile(accessToken:str) -> str:
     - Dùng khi cần xem chi tiết thông tin cá nhân.
     
     """
-    # logging.debug(f"Server nhận token: {token}")
-    # import inspect
-    # frame = inspect.currentframe()
-    # token = frame.f_locals.get("accessToken")
-
 
     logging.info("Tạo MCP Server cho hệ thống quản lý trường học... Token=%s", accessToken)
     logging.info("get_profile: accessToken=%s", type(accessToken))
@@ -234,24 +227,11 @@ async def get_teacher_courses(accessToken:str) -> str:
     - Thông báo lỗi nếu thất bại hoặc không có quyền.
     """
     
-    result = await make_api_request("GET", "/teacher/courses", auth_required=True,token=accessToken)
+    # 1. Lấy dữ liệu API
+    result = await make_api_request("GET", "/teacher/courses", auth_required=True, token=accessToken)
     return json.dumps(result, ensure_ascii=False)
 
 # --- Manager Functions ---
-@mcp.tool()
-async def get_system_overview(accessToken:str) -> str:
-    """
-    Xem thống kê tổng quan của hệ thống (dành cho quản lý).
-
-    - Yêu cầu vai trò: Quản lý.
-    - Output: Thống kê số lượng người dùng, lớp học, khóa học, giáo viên, sinh viên.
-    """
-
-    if not ACCESS_TOKEN:
-        return json.dumps({"success": False, "message": "Vui lòng đăng nhập trước"}, ensure_ascii=False)
-    
-    result = await make_api_request("GET", "/manager/overview", auth_required=True,token=accessToken)
-    return json.dumps(result, ensure_ascii=False)
 
 @mcp.tool()
 async def create_class(course_id: int, semester: str, academic_year: str, 

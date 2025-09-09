@@ -19,7 +19,7 @@ from a2a.utils.errors import ServerError
 from google.adk import Runner
 from google.adk.events import Event
 from google.genai import types
-
+import json, base64
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
@@ -37,9 +37,9 @@ class ExecutorAgentExecutor(AgentExecutor):
         # self.runner.agent.root_agent.
         # token = ""
         return self.runner.run_async(
-            session_id=session_id, user_id="Unknows", new_message=new_message
+            session_id=session_id, user_id="Executor_agent", new_message=new_message
         )
-
+   
     async def _process_request(
         self,
         new_message: types.Content,
@@ -104,12 +104,12 @@ class ExecutorAgentExecutor(AgentExecutor):
 
     async def _upsert_session(self, session_id: str, token: str):
         session = await self.runner.session_service.get_session(
-            app_name=self.runner.app_name, user_id="Unknown", session_id=session_id,
+            app_name=self.runner.app_name, user_id="Executor_agent", session_id=session_id,
         )
         if session is None:
             session = await self.runner.session_service.create_session(
                 app_name=self.runner.app_name,
-                user_id="Unknown",
+                user_id="Executor_agent",
                 session_id=session_id,
                 state= {
                     "token": token

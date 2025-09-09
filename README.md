@@ -10,11 +10,7 @@ Before running the application locally, ensure you have the following installed:
 2. **python 3.13** Python 3.13 is required to run a2a-sdk 
 3. **set up .env** 
 
-Create a `.env` file in the root of the `TrienKhaiAgent` directory with your Google API Key:
-```
-GOOGLE_API_KEY="your_api_key_here" 
-```
-
+Create a `.env` file in each  of the directory with your Google API Key:
 ## Run the Agents
 
 You will need to run each agent in a separate terminal window. The first time you run these commands, `uv` will create a virtual environment and install all necessary dependencies before starting the agent.
@@ -71,10 +67,29 @@ cd agent_host_adk
 uv run uvicorn host:app --host 0.0.0.0 --port 9000 --reload      
 ```
 
+### Terminal 5: Run chart Agent
+```bash
+cd agent_chart
+uv venv
+.venv\Scripts\activate
+uv run --active .   
+```
+```bash
+cd agent_chart
+.venv\Scripts\activate
+uv run --active .    
+```
+
 ## Interact with the Host Agent
 
-Once all agents are running, the host agent will begin the scheduling process. You can view the interaction in the terminal output of the `host_agent`.
+sudo docker-compose down -v --rmi all
+sudo docker-compose build --no-cache
+sudo docker-compose up
 
+
+
+Once all agents are running, the host agent will begin the scheduling process. You can view the interaction in the terminal output of the `host_agent`.
+run all sub agent before run host agent
 ## References
 - https://github.com/google/a2a-python
 - https://codelabs.developers.google.com/intro-a2a-purchasing-concierge#1

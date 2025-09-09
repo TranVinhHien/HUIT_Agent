@@ -9,3 +9,4 @@ httpx
 fastapi
 pydantic
 pymysql
+PyJWT
