@@ -39,7 +39,7 @@ def main():
     # Ensure Windows can spawn subprocesses from asyncio (needed for MCP stdio client)
     if sys.platform.startswith("win"):
         asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
-    host = "localhost"
+    host = "0.0.0.0"
     port =int( os.getenv("PORT", 10003))
     APP_NAME = "AgentExecutor"
     agent_info = get_agent_info(APP_NAME)

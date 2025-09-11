@@ -105,7 +105,13 @@ async def process_agent_response(event: Event):
             # Also print any text parts found in any event for debugging
             elif hasattr(part, "text") and part.text and not part.text.isspace():
                 print(f"  Text: '{part.text.strip()}'")
-
+    print(
+                f"\n{Colors.BG_YELLOW}{Colors.WHITE}{Colors.BOLD}╔══ Event final ═════════════════════════════════════════{Colors.RESET}"
+            )
+    print(f"{Colors.CYAN}{Colors.BOLD}{event}{Colors.RESET}")
+    print(
+                f"{Colors.BG_YELLOW}{Colors.WHITE}{Colors.BOLD}╚═════════════════════════════════════════════════════════════{Colors.RESET}\n"
+            )
     # Check for final response after specific parts
     final_response = None
     if event.is_final_response():
@@ -126,7 +132,10 @@ async def process_agent_response(event: Event):
                 return final_response
             if part.function_response.response.get("result")[0].get("kind") == "file":
                 final_response = {
-                    "files":await store_file_temporarily(part.function_response.response.get("result")),
+                    "result":part.function_response.response.get("result")
+                }
+                hh= {
+                     "result":part.function_response.response.get("result")
                 }
                 return final_response
             # file_url=await store_file_temporarily(part.function_response.response.get("result"))
@@ -175,15 +184,13 @@ async def call_agent_async(runner: Runner, user_id:str, session_id:str, query: s
     state_delta: dict[str, str] = {
     "token": token,
 }
-    
     try:
         async for event in runner.run_async(
-            user_id=user_id, session_id=session_id, new_message=content,state_delta=state_delta,
+            user_id=user_id, session_id=session_id, new_message=content,state_delta=state_delta
         ):
             # Process each event and get the final response if available
             response = await process_agent_response(event)
-            if response:
-                final_response_text = response
+            final_response_text = response
     except Exception as e:
         print(f"Error during agent call: {e}")
     print("Agent call completed.")
@@ -197,7 +204,7 @@ def check_token(token: str) -> str|None:
     try:
         decoded = jwt.decode(token, secret_key, algorithms=["HS256"])
         return None
-    except jwt.ExpiredSignatureError:
-        return "Token đã hết hạn"
+    except jwt.ExpiredSignatureError as e:
+        return f"Token đã hết hạn: {e}"
     except jwt.InvalidTokenError as e:
         return "Token không hợp lệ"

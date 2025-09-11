@@ -50,7 +50,13 @@ class ExecutorAgentExecutor(AgentExecutor):
         session_obj = await self._upsert_session(session_id,token,user_info )
         session_id = session_obj.id
         async for event in self._run_agent(session_id, new_message):
-
+            print(
+                f"\n╔══ Event final ═════════════════════════════════════════"
+            )
+            print(f"{event}")
+            print(
+                f"╚═════════════════════════════════════════════════════════════"
+            )
             if event.is_final_response():
                 parts = convert_genai_parts_to_a2a(
                     event.content.parts if event.content and event.content.parts else []

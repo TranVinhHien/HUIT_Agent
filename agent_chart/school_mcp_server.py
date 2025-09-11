@@ -8,13 +8,20 @@ import json
 import logging
 import os
 import aiohttp
-from typing import Dict, Any, Optional
-
+from typing import Dict, Any, Optional, List
+from google.adk.tools.tool_context import ToolContext
+import google.genai.types as types
 from dotenv import load_dotenv
 from mcp.server.fastmcp.utilities.types import Image
+from typing import Annotated
+from pydantic import SkipValidation
+from google.adk.tools.tool_context import ToolContext
 from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp import FastMCP, Context
 from mcp.types import ImageContent
 import numpy as np
+import matplotlib.ticker as mticker
+from matplotlib import cm
 
 from mcp.server.stdio import stdio_server
 import sys
@@ -25,7 +32,10 @@ import io, base64
 load_dotenv()
 from constants import (
     GENERATED_THUMBNAILS_DIR,
-    )
+    IMAGE_ROOT_DIR,
+    THUMBNAIL_ASSETS_DIR,
+    THUMBNAIL_IMAGE_SIZE,
+)
 import uuid
 # --- Logging Setup ---
 LOG_FILE_PATH = os.path.join(os.path.dirname(__file__), "school_mcp_server_activity.log")
@@ -95,6 +105,35 @@ async def make_api_request(
             logging.error(f"Lỗi khi gọi API tới {url}: {e}", exc_info=True)
             return {"success": False, "message": f"Lỗi kết nối API: {str(e)}"}
 
+# Tool function to save image as artifact and conditionally save locally
+# async def _image_save_func(image_bytes: bytes, file_extension: str, tool_context: ToolContext) -> Dict[str, Any]:
+#     """Saves image bytes as an ADK artifact and conditionally saves a copy locally."""
+#     logger.debug("Entering _image_save_func (artifact save version)...")
+
+#     # Determine mime type and ensure extension format
+#     if file_extension and not file_extension.startswith('.'):
+#         file_extension = '.' + file_extension
+#     mime_type = f"image/{file_extension.lstrip('.')}" if file_extension else "image/png"
+#     # Make filename unique for the artifact itself and local copy
+#     filename = f"generated_image_{uuid.uuid4()}{file_extension if file_extension else '.png'}" 
+
+#     # --- Conditional Local Save Logic  --- 
+#     if GENERATED_THUMBNAILS_DIR:
+#         save_dir = GENERATED_THUMBNAILS_DIR
+#         try:
+#             os.makedirs(save_dir, exist_ok=True)
+#             # Use the unique filename generated above for local copy consistency
+#             local_path = os.path.join(save_dir, filename) 
+            
+#             logger.info(f"Attempting to save image locally to: {local_path} (SAVE_IMAGES_LOCALLY is True)")
+#             with open(local_path, "wb") as f:
+#                 f.write(image_bytes)
+#             logger.info(f"Successfully saved image locally to: {local_path}")
+#         except Exception as e:
+#             # Log error but don't stop the main process
+#             logger.warning(f"Local file save failed (path: {save_dir}): {e}", exc_info=False)
+#     else:
+#         logger.debug("Local image saving skipped (SAVE_IMAGES_LOCALLY is False).")
 # --- MCP Server Setup ---
 logging.info("Tạo MCP Server cho hệ thống quản lý trường học...")
 mcp = FastMCP("school-management-mcp-server")
@@ -112,7 +151,7 @@ async def get_student_gpa_by_semester(token: str, semester: Optional[str] = None
     
     Args:
         token: Token xác thực (required).
-        semester: Học kỳ (optional).
+        semester: Học kỳ (optional) chỉ nhận 3 tham số hãy từ prompt người dùng chọn tham số Args hợp lý là HOCKY1 | HOCKY2 | HOCKYHE .
         academic_year: Năm học (optional).
     """
     import uuid
@@ -225,8 +264,8 @@ async def get_student_gpa_by_semester(token: str, semester: Optional[str] = None
     img_base64 = base64.b64encode(image_bytes).decode("utf-8")
 
     # Lưu local
-    # with open(filepath, "wb") as f:
-    #     f.write(image_bytes)
+    with open(filepath, "wb") as f:
+        f.write(image_bytes)
 
     return {
         "success": True,
@@ -334,8 +373,8 @@ async def get_student_course_progress(token: str) -> Dict:
 
     img_base64 = base64.b64encode(image_bytes).decode("utf-8")
 
-    # with open(filepath, "wb") as f:
-    #     f.write(image_bytes)
+    with open(filepath, "wb") as f:
+        f.write(image_bytes)
 
     return {
         "success": True,
@@ -359,7 +398,7 @@ async def get_teacher_class_enrollment_statistics(token: str, semester: Optional
     
     Args:
         token: Token xác thực (required).
-        semester: Học kỳ (optional).
+        semester: Học kỳ (optional) chỉ nhận 3 tham số hãy từ prompt người dùng chọn tham số Args hợp lý là HOCKY1 | HOCKY2 | HOCKYHE .
         academic_year: Năm học (optional).
     """
     params = {}
@@ -368,6 +407,7 @@ async def get_teacher_class_enrollment_statistics(token: str, semester: Optional
     if academic_year:
         params['academic_year'] = academic_year
     # Gọi API
+    
     data = await make_api_request("GET", "/teacher/class-enrollment-statistics", params=params, token=token)
 
     if not data or not data.get("success", False):
@@ -429,8 +469,8 @@ async def get_teacher_class_enrollment_statistics(token: str, semester: Optional
         image_bytes = buf.getvalue()
         img_base64 = base64.b64encode(image_bytes).decode("utf-8")
 
-        # with open(filepath, "wb") as f:
-        #     f.write(image_bytes)
+        with open(filepath, "wb") as f:
+            f.write(image_bytes)
 
         return {
             "success": True,
@@ -494,8 +534,8 @@ async def get_teacher_class_enrollment_statistics(token: str, semester: Optional
         image_bytes = buf.getvalue()
         img_base64 = base64.b64encode(image_bytes).decode("utf-8")
 
-        # with open(filepath, "wb") as f:
-        #     f.write(image_bytes)
+        with open(filepath, "wb") as f:
+            f.write(image_bytes)
 
         return {
             "success": True,
@@ -517,7 +557,7 @@ async def get_teacher_student_grades_analysis(token: str, class_id: Optional[int
     Args:
         token: Token xác thực (required).
         class_id: ID lớp học (optional).
-        semester: Học kỳ (optional).
+        semester: Học kỳ (optional) chỉ nhận 3 tham số hãy từ prompt người dùng chọn tham số Args hợp lý là HOCKY1 | HOCKY2 | HOCKYHE .
         academic_year: Năm học (optional).
     """
     import uuid
@@ -657,8 +697,8 @@ async def get_teacher_student_grades_analysis(token: str, class_id: Optional[int
             "summary": item.get("grade_statistics") or {}
         }
         # Lưu local copy
-        # with open(filepath, "wb") as f:
-        #     f.write(image_bytes)
+        with open(filepath, "wb") as f:
+            f.write(image_bytes)
         return response
 
     # CHART for multiple classes
@@ -697,8 +737,8 @@ async def get_teacher_student_grades_analysis(token: str, class_id: Optional[int
             buf.seek(0)
             image_bytes = buf.getvalue()
             img_base64 = base64.b64encode(image_bytes).decode("utf-8")
-            # with open(filepath, "wb") as f:
-            #     f.write(image_bytes)
+            with open(filepath, "wb") as f:
+                f.write(image_bytes)
             return {
                 "success": True,
                 "message": "Boxplot phân bố điểm cho các lớp (dữ liệu thô).",
@@ -772,8 +812,8 @@ async def get_teacher_student_grades_analysis(token: str, class_id: Optional[int
         img_base64 = base64.b64encode(image_bytes).decode("utf-8")
 
         # Save local
-        # with open(filepath, "wb") as f:
-        #     f.write(image_bytes)
+        with open(filepath, "wb") as f:
+            f.write(image_bytes)
 
         return {
             "success": True,
@@ -807,128 +847,188 @@ async def get_manager_department_personnel_statistics( token: str, department_id
     Args:
         token: Token xác thực (required).
         department_id: ID khoa (optional).
+        department_Name: Tên khoa (optional).
+    - Nếu nhiều khoa: grouped bars (SV vs GV) + line ratio (SV/GV).
+    - Nếu 1 khoa: composite figure (donut majors, SV vs GV, KPI bars).
     """
 
-    filename: str = "department_personnel_chart.png"
 
+
+
+    filename = "department_personnel_chart.png"
 
     # Gọi API
     params = {}
     if department_id:
-        params['department_id'] = department_id
+        params["department_id"] = department_id
     elif department_name:
-        params['department_name'] = department_name
+        params["department_name"] = department_name
 
     data = await make_api_request("GET", "/manager/department-personnel-statistics", params=params, token=token)
-    # Validate
+
+    # Kiểm tra dữ liệu trả về
     if not data or not data.get("success", False):
         return {"success": False, "message": "Lấy dữ liệu thất bại", "detail": data}
 
     departments = data["data"].get("department_personnel_statistics", [])
+    overall_summary = data["data"].get("overall_summary", {})
+
+    # Trường hợp không có dữ liệu
     if not departments:
-        return {"success": True, "message": "Không có dữ liệu khoa", "chart_base64": "", "filepath": "", "artifact_filename": filename, "artifact_version": None, "summary": data["data"].get("overall_summary")}
+        return {
+            "success": True,
+            "message": "Không có dữ liệu khoa",
+            "chart_base64": "",
+            "filepath": "",
+            "artifact_filename": filename,
+            "artifact_version": None,
+            "summary": overall_summary
+        }
 
-    # chuẩn hóa dữ liệu cơ bản
-    dept_names = [d["department_info"]["department_name"] for d in departments]
-    students = [d["student_statistics"].get("total_students", 0) for d in departments]
-    teachers = [d["teacher_statistics"].get("total_teachers", 0) for d in departments]
-    ratios = [round(d["teacher_statistics"].get("student_teacher_ratio", (s / t if t > 0 else 0)), 1) 
-              for d, s, t in zip(departments, students, teachers)]
+    # Chuẩn chỉnh style chung
+    plt.rcParams.update({
+        "font.size": 11,
+        "figure.facecolor": "white",
+        "axes.titlesize": 14,
+        "axes.titleweight": "bold",
+        "axes.grid": False
+    })
 
-    # prepare figure
-    plt.rcParams.update({"font.size": 11})
-    # nhiều khoa -> grouped bar + ratio
+    # ---------- NHIỀU KHOA: grouped bar + ratio ----------
     if len(departments) > 1:
-        n = len(departments)
+        dept_names = [d["department_info"]["department_name"] for d in departments]
+        students = [d["student_statistics"].get("total_students", 0) for d in departments]
+        teachers = [d["teacher_statistics"].get("total_teachers", 0) for d in departments]
+        ratios = [
+            round(
+                d["teacher_statistics"].get("student_teacher_ratio",
+                                           (s / t if t > 0 else 0)
+                                           ), 1
+            ) for d, s, t in zip(departments, students, teachers)
+        ]
+
+        n = len(dept_names)
         x = np.arange(n)
         width = 0.35
 
-        fig, (ax0, ax1) = plt.subplots(2, 1, figsize=(12, 9), gridspec_kw={"height_ratios":[3,1]}, constrained_layout=True)
+        fig, ax = plt.subplots(figsize=(max(10, n * 1.8), 6))
+        cmap = cm.get_cmap("tab10")
+        bar_students = ax.bar(x - width / 2, students, width=width, label="Sinh viên", color=cmap(0), alpha=0.95)
+        bar_teachers = ax.bar(x + width / 2, teachers, width=width, label="Giảng viên", color=cmap(1), alpha=0.95)
 
-        # grouped bars SV vs GV
-        b1 = ax0.bar(x - width/2, students, width=width, label="Sinh viên", edgecolor="none", alpha=0.95)
-        b2 = ax0.bar(x + width/2, teachers, width=width, label="Giảng viên", edgecolor="none", alpha=0.95)
+        # Annotate counts on bars
+        def annotate_bars(rects, ax_local, fmt=int, yoffset=6):
+            for rect in rects:
+                h = rect.get_height()
+                if h > 0:
+                    ax_local.annotate(
+                        f"{fmt(h)}",
+                        xy=(rect.get_x() + rect.get_width() / 2, h),
+                        xytext=(0, yoffset),
+                        textcoords="offset points",
+                        ha="center",
+                        va="bottom",
+                        fontsize=10,
+                        color="#222"
+                    )
+        annotate_bars(bar_students, ax)
+        annotate_bars(bar_teachers, ax)
 
-        # annotate bar counts
-        for rect in list(b1) + list(b2):
-            h = rect.get_height()
-            if h > 0:
-                ax0.annotate(f"{int(h)}",
-                             xy=(rect.get_x() + rect.get_width() / 2, h),
-                             xytext=(0, 6), textcoords="offset points",
-                             ha="center", va="bottom", fontsize=10, color="#222")
+        ax.set_xticks(x)
+        ax.set_xticklabels(dept_names, rotation=30, ha="right")
+        ax.set_ylabel("Số lượng người")
+        title = f"Thống kê nhân sự theo khoa"
+        ax.set_title(f"{title} ({overall_summary.get('total_departments', len(departments))} khoa)")
+        ax.grid(axis="y", linestyle="--", alpha=0.4)
+        ax.legend(frameon=True)
 
-        ax0.set_xticks(x)
-        ax0.set_xticklabels(dept_names, rotation=30, ha="right")
-        ax0.set_ylabel("Số lượng người")
-        ax0.set_title("Thống kê nhân sự theo khoa", fontsize=16, fontweight="bold")
-        ax0.legend(frameon=True)
-        ax0.grid(axis="y", linestyle="--", alpha=0.5)
-
-        # student/teacher ratio bar (trục riêng)
-        ax1.bar(x, ratios, width=0.5, color="#6a5acd")
+        # Secondary axis for ratio (SV/GV)
+        ax2 = ax.twinx()
+        ax2.plot(x, ratios, color=cmap(2), marker="o", linewidth=2, label="Tỉ lệ SV/GV")
         for i, r in enumerate(ratios):
-            ax1.annotate(f"{r}", xy=(x[i], r), xytext=(0, 6), textcoords="offset points", ha="center", va="bottom")
-        ax1.set_xticks(x)
-        ax1.set_xticklabels(dept_names, rotation=30, ha="right")
-        ax1.set_ylabel("Tỉ lệ SV/GV")
-        ax1.grid(axis="y", linestyle="--", alpha=0.5)
+            ax2.annotate(f"{r}", xy=(x[i], ratios[i]), xytext=(0, 8), textcoords="offset points", ha="center", va="bottom", fontsize=10, color=cmap(2))
+        ax2.set_ylabel("Tỉ lệ SV/GV")
+        ax2.yaxis.set_major_locator(mticker.MaxNLocator(integer=False))
 
+        # Combined legend
+        lines, labs = ax.get_legend_handles_labels()
+        lines2, labs2 = ax2.get_legend_handles_labels()
+        ax.legend(lines + lines2, labs + labs2, loc="upper left", frameon=True)
+
+        plt.tight_layout()
+
+    # ---------- 1 KHOA: composite figure (donut + SV-GV + KPI) ----------
     else:
-        # 1 khoa -> composite figure with donut + SV vs GV + KPI bars
         dept = departments[0]
-        title_dept = dept["department_info"]["department_name"]
-
-        # major distribution: top-N then 'Khác'
-        majors = dept["student_statistics"].get("major_distribution", [])
-        # majors may be list of dict {'major':..., 'count':...}
-        maj_dict = {m["major"]: m["count"] for m in majors} if isinstance(majors, list) else {}
-        top_n = 6
-        sorted_maj = sorted(maj_dict.items(), key=lambda x: x[1], reverse=True)
-        labels = [m for m, c in sorted_maj[:top_n]]
-        sizes = [c for m, c in sorted_maj[:top_n]]
-        other_count = sum(c for m, c in sorted_maj[top_n:])
-        if other_count > 0:
-            labels.append("Khác")
-            sizes.append(other_count)
-        if not labels:  # nếu không có chuyên ngành
-            labels = ["Không có dữ liệu"]
-            sizes = [1]
-
+        dept_name = dept["department_info"].get("department_name", "Khoa")
         sv = dept["student_statistics"].get("total_students", 0)
         gv = dept["teacher_statistics"].get("total_teachers", 0)
         ratio = round(dept["teacher_statistics"].get("student_teacher_ratio", (sv / gv if gv > 0 else 0)), 1)
 
+        # major distribution
+        major_dist_list = dept["student_statistics"].get("major_distribution", [])
+        # convert list->dict if needed
+        if isinstance(major_dist_list, list):
+            maj_dict = {}
+            for item in major_dist_list:
+                key = item.get("major") if isinstance(item, dict) else str(item)
+                val = item.get("count", 0) if isinstance(item, dict) else 0
+                maj_dict[key] = maj_dict.get(key, 0) + val
+        elif isinstance(major_dist_list, dict):
+            maj_dict = major_dist_list
+        else:
+            maj_dict = {}
+
+        # prepare top-N majors
+        sorted_maj = sorted(maj_dict.items(), key=lambda x: x[1], reverse=True)
+        top_n = 6
+        labels = [m for m, c in sorted_maj[:top_n]]
+        sizes = [c for m, c in sorted_maj[:top_n]]
+        other = sum(c for m, c in sorted_maj[top_n:])
+        if other > 0:
+            labels.append("Khác")
+            sizes.append(other)
+        if not labels:
+            labels = ["Không có dữ liệu"]
+            sizes = [1]
+
+        # Academic KPIs
         academic = dept.get("academic_statistics", {})
         total_courses = academic.get("total_courses", 0)
         total_credits = academic.get("total_credits_offered", 0)
         active_classes = academic.get("active_classes_current_semester", 0)
         current_enrollments = academic.get("current_enrollments", 0)
 
-        fig = plt.figure(figsize=(12,8), constrained_layout=True)
-        gs = fig.add_gridspec(2, 3)
+        # Build figure with GridSpec: left donut, top-right SV/GV, bottom-right KPIs
+        fig = plt.figure(figsize=(12, 8), constrained_layout=True)
+        gs = fig.add_gridspec(2, 3, width_ratios=[1.2, 1, 1])
 
-        ax_pie = fig.add_subplot(gs[:, 0])  # left vertical donut
-        ax_topright = fig.add_subplot(gs[0, 1:])
-        ax_bottomright = fig.add_subplot(gs[1, 1:])
+        ax_pie = fig.add_subplot(gs[:, 0])
+        ax_sv_gv = fig.add_subplot(gs[0, 1:])
+        ax_kpi = fig.add_subplot(gs[1, 1:])
 
-        # Donut pie for majors
+        # Donut pie (majors)
+        cmap = cm.get_cmap("tab20")
+        colors = [cmap(i) for i in range(len(labels))]
         wedges, texts, autotexts = ax_pie.pie(
             sizes,
             labels=labels,
             autopct=lambda p: f"{p:.0f}%" if p > 0 else "",
             startangle=90,
             pctdistance=0.75,
-            wedgeprops=dict(width=0.45, edgecolor='w')
+            textprops={"fontsize": 10}
         )
-        ax_pie.set_title(f"Phân bố chuyên ngành\n{title_dept}", fontsize=14, fontweight="bold")
+        # make donut
+        centre_circle = plt.Circle((0, 0), 0.45, fc="white")
+        ax_pie.add_artist(centre_circle)
+        ax_pie.set_title(f"Phân bố chuyên ngành\n{dept_name}", fontsize=14, fontweight="bold")
 
         # SV vs GV bar
-        ax_topright.bar(["Sinh viên", "Giảng viên"], [sv, gv], width=0.6)
+        ax_sv_gv.bar(["Sinh viên", "Giảng viên"], [sv, gv], color=[cm.get_cmap("tab10")(0), cm.get_cmap("tab10")(1)], width=0.5)
         for i, val in enumerate([sv, gv]):
-            ax_topright.annotate(f"{int(val)}", xy=(i, val), xytext=(0,6), textcoords="offset points", ha="center", va="bottom")
-        ax_topright.set_ylabel("Số lượng")
-        ax_topright.set_title(f"Số lượng SV và GV (Tỉ lệ: {ratio})", fontsize=12)
+            ax_sv_gv.annotate(f"{int(val)}", xy=(i, val), xytext=(0, 8), textcoords="offset points", ha="center", va="bottom", fontsize=11)
+        ax_sv_gv.set_ylabel("Số lượng")
+        ax_sv_gv.set_title(f"Số lượng SV & GV (Tỉ lệ: {ratio})", fontsize=12)
 
         # KPI horizontal bars
         kpis = {
@@ -940,20 +1040,19 @@ async def get_manager_department_personnel_statistics( token: str, department_id
         k_labels = list(kpis.keys())
         k_values = list(kpis.values())
         y_pos = np.arange(len(k_labels))
-
-        ax_bottomright.barh(y_pos, k_values, height=0.6)
+        ax_kpi.barh(y_pos, k_values, height=0.6, color=cm.get_cmap("Pastel1").colors[:len(k_labels)])
         for i, v in enumerate(k_values):
-            ax_bottomright.annotate(f"{int(v)}", xy=(v, y_pos[i]), xytext=(6, -4), textcoords="offset points", ha="left", va="center")
-        ax_bottomright.set_yticks(y_pos)
-        ax_bottomright.set_yticklabels(k_labels)
-        ax_bottomright.set_xlabel("Giá trị")
-        ax_bottomright.set_title("Chỉ số học thuật - hiện tại", fontsize=12)
-        ax_bottomright.invert_yaxis()  # keep first item on top
+            ax_kpi.annotate(f"{int(v)}", xy=(v, y_pos[i]), xytext=(6, -4), textcoords="offset points", ha="left", va="center", fontsize=10)
+        ax_kpi.set_yticks(y_pos)
+        ax_kpi.set_yticklabels(k_labels)
+        ax_kpi.invert_yaxis()
+        ax_kpi.set_xlabel("Giá trị")
+        ax_kpi.set_title("Chỉ số học thuật - hiện tại", fontsize=12)
 
     # Lưu ảnh vào buffer
     buf = io.BytesIO()
-    plt.savefig(buf, format="png", dpi=150)
-    plt.close('all')
+    plt.savefig(buf, format="png", dpi=160)
+    plt.close("all")
     buf.seek(0)
     image_bytes = buf.getvalue()
     img_base64 = base64.b64encode(image_bytes).decode("utf-8")
@@ -961,8 +1060,8 @@ async def get_manager_department_personnel_statistics( token: str, department_id
     # Lưu file local
     os.makedirs(GENERATED_THUMBNAILS_DIR, exist_ok=True)
     filepath = os.path.join(GENERATED_THUMBNAILS_DIR, filename)
-    # with open(filepath, "wb") as f:
-    #     f.write(image_bytes)
+    with open(filepath, "wb") as f:
+        f.write(image_bytes)
 
     response = {
         "success": True,
@@ -971,9 +1070,10 @@ async def get_manager_department_personnel_statistics( token: str, department_id
         "filepath": filepath,
         "artifact_filename": filename,
         "artifact_version": None,
-        "summary": data["data"].get("overall_summary", {})
+        "summary": overall_summary
     }
     return response
+
 @mcp.tool()
 async def get_manager_class_offering_statistics(token: str, department_id: Optional[int] = None, department_name: Optional[str] = "" ,semester: Optional[str] = None, academic_year: Optional[str] = None) -> Dict:
     """
@@ -987,11 +1087,13 @@ async def get_manager_class_offering_statistics(token: str, department_id: Optio
         token: Token xác thực (required).
         department_id: ID khoa (optional).
         department_Name: Tên khoa (optional).
-
-        semester: Học kỳ (optional). có 3 học kỳ có thể được truyền vào Args: Học kỳ 1, Học kỳ 2, Học kỳ hè
+        semester: Học kỳ (optional) chỉ nhận 3 tham số hãy từ prompt người dùng chọn tham số Args hợp lý là HOCKY1 | HOCKY2 | HOCKYHE .
         academic_year: Năm học (optional).
+    - Nhiều khoa: stacked bar (trạng thái lớp) + enrollment vs capacity subplot.
+    - 1 khoa: donut (phân bố trạng thái) + KPI bars + SV/GV.
     """
-    filename: str = "class_offering_chart.png"
+
+    filename = "class_offering_chart.png"
 
     # Gọi API
     params = {}
@@ -1006,82 +1108,206 @@ async def get_manager_class_offering_statistics(token: str, department_id: Optio
 
     data = await make_api_request("GET", "/manager/class-offering-statistics", params=params, token=token)
 
-    departments = data["data"]["class_offering_statistics"]
+    # Validate
+    if not data or not data.get("success", False):
+        return {"success": False, "message": "Lấy dữ liệu thất bại", "detail": data}
 
-    # --- Chart logic ---
-    fig, ax = plt.subplots(figsize=(9, 6))
-    colors = {"Mở đăng ký": "#4CAF50", "Đang học": "#2196F3", "Hoàn thành": "#FFC107"}
+    departments = data["data"].get("class_offering_statistics", [])
+    overall_summary = data["data"].get("overall_summary", {})
 
+    # No data
+    if not departments:
+        return {
+            "success": True,
+            "message": "Không có dữ liệu lớp học",
+            "chart_base64": "",
+            "filepath": "",
+            "artifact_filename": filename,
+            "artifact_version": None,
+            "summary": overall_summary
+        }
+
+    # style chung
+    plt.rcParams.update({
+        "font.size": 11,
+        "figure.facecolor": "white",
+        "axes.titlesize": 14,
+        "axes.titleweight": "bold",
+    })
+
+    # helper: lấy count theo status (thông thường status là "Mở đăng ký","Đang học","Hoàn thành")
+    def get_status_counts(d):
+        dist = d.get("class_summary", {}).get("status_distribution", [])
+        status_map = {item.get("status"): item.get("count", 0) for item in dist}
+        # fallback: nếu keys là enum-like, giữ nguyên
+        return status_map
+
+    # --- NHIỀU KHOA: stacked bar + enrollment subplot ---
     if len(departments) > 1:
-        # Trường hợp nhiều khoa → stacked bar
-        dept_names = [d["department_info"]["department_name"] for d in departments]
-        open_classes = [d["class_summary"]["open_classes"] for d in departments]
-        in_progress = [
-            next((s["count"] for s in d["class_summary"]["status_distribution"] if s["status"] == "Đang học"), 0)
-            for d in departments
-        ]
-        completed_classes = [d["class_summary"]["completed_classes"] for d in departments]
+        dept_names = [d["department_info"].get("department_name", f"Khoa {i}") for i, d in enumerate(departments)]
+        # statuses to show in stacked order
+        common_statuses = ["Mở đăng ký", "Đang học", "Hoàn thành"]
+        # build matrix counts [status][dept]
+        counts_by_status = {s: [] for s in common_statuses}
+        enrollments = []
+        capacities = []
+        utilizations = []
+        for d in departments:
+            status_map = get_status_counts(d)
+            # if status_map is empty, try to infer from keys
+            if not status_map:
+                # safety: look at class_summary.total_classes maybe
+                for s in common_statuses:
+                    counts_by_status[s].append(0)
+            else:
+                for s in common_statuses:
+                    counts_by_status[s].append(status_map.get(s, 0))
+            en = d.get("enrollment_summary", {}).get("total_enrollment", 0)
+            cp = d.get("enrollment_summary", {}).get("total_capacity", 0)
+            util = d.get("enrollment_summary", {}).get("utilization_rate",
+                                                      round((en / cp * 100) if cp > 0 else 0, 1))
+            enrollments.append(en)
+            capacities.append(cp)
+            utilizations.append(util)
 
-        bar1 = ax.bar(dept_names, open_classes, label="Mở đăng ký", color=colors["Mở đăng ký"])
-        bar2 = ax.bar(dept_names, in_progress, bottom=open_classes, label="Đang học", color=colors["Đang học"])
-        bar3 = ax.bar(
-            dept_names,
-            completed_classes,
-            bottom=[o + i for o, i in zip(open_classes, in_progress)],
-            label="Hoàn thành",
-            color=colors["Hoàn thành"]
-        )
+        n = len(dept_names)
+        x = np.arange(n)
+        fig, (ax_top, ax_bot) = plt.subplots(2, 1, figsize=(max(10, n * 1.6), 8), gridspec_kw={"height_ratios": [3, 1]})
 
-        ax.set_ylabel("Số lượng lớp", fontsize=12)
-        ax.set_title(
-            f"Thống kê lớp học theo khoa ({semester or ''} - {academic_year or ''})",
-            fontsize=14,
-            fontweight="bold"
-        )
-        ax.legend()
-        plt.xticks(rotation=25, ha="right")
-        ax.grid(axis="y", linestyle="--", alpha=0.7)
+        # stacked bars
+        bottom = np.zeros(n)
+        cmap = cm.get_cmap("Set2")
+        color_map = {"Mở đăng ký": "#4CAF50", "Đang học": "#2196F3", "Hoàn thành": "#FFC107"}
+        bars = []
+        for status in common_statuses:
+            vals = np.array(counts_by_status[status])
+            b = ax_top.bar(x, vals, bottom=bottom, label=f"{status} ({vals.sum()})", color=color_map.get(status), edgecolor="none")
+            # annotate each segment if >0
+            for xi, h, bot in zip(x, vals, bottom):
+                if h > 0:
+                    ax_top.text(xi, bot + h / 2, f"{int(h)}", ha="center", va="center", fontsize=9, color="#111")
+            bottom += vals
+            bars.append(b)
 
+        ax_top.set_xticks(x)
+        ax_top.set_xticklabels(dept_names, rotation=30, ha="right")
+        ax_top.set_ylabel("Số lớp")
+        ax_top.set_title(f"Phân bố trạng thái lớp học theo khoa ({semester or ''} - {academic_year or ''})")
+        ax_top.grid(axis="y", linestyle="--", alpha=0.4)
+        ax_top.legend(frameon=True, ncol=3, bbox_to_anchor=(1.0, 1.05))
+
+        # enrollment vs capacity bars in bottom subplot + utilization line
+        width = 0.35
+        ax_bot.bar(x - width/2, enrollments, width=width, label="Tổng đăng ký", color="#6CA0DC")
+        ax_bot.bar(x + width/2, capacities, width=width, label="Tổng sức chứa", color="#C5D6E8", alpha=0.9)
+        ax_bot.set_xticks(x)
+        ax_bot.set_xticklabels([], rotation=30)  # hide duplicate labels
+        ax_bot.set_ylabel("Số lượng")
+        ax_bot.grid(axis="y", linestyle="--", alpha=0.3)
+        # utilization line (secondary axis)
+        ax2 = ax_bot.twinx()
+        ax2.plot(x, utilizations, color="#D65A31", marker="o", label="Tỉ lệ sử dụng (%)", linewidth=2)
+        for xi, val in zip(x, utilizations):
+            ax2.text(xi, val + 1.5, f"{val:.0f}%", ha="center", va="bottom", fontsize=9, color="#D65A31")
+        ax2.set_ylabel("Tỉ lệ sử dụng (%)")
+        # combined legend for bottom
+        lines1, labs1 = ax_bot.get_legend_handles_labels()
+        lines2, labs2 = ax2.get_legend_handles_labels()
+        ax_bot.legend(lines1 + lines2, labs1 + labs2, loc="upper center", ncol=3, frameon=True)
+
+        plt.tight_layout()
+
+    # --- 1 KHOA: donut + KPI panels ---
     else:
-        # Trường hợp 1 khoa → pie chart
         dept = departments[0]
-        dist = dept["class_summary"]["status_distribution"]
-        labels = [d["status"] for d in dist]
-        sizes = [d["count"] for d in dist]
-        colors_list = [colors[label] for label in labels]
+        dept_name = dept["department_info"].get("department_name", "Khoa")
+        status_map = get_status_counts(dept)
+        # fallback statuses order
+        labels = []
+        sizes = []
+        # Prefer canonical order
+        for s in ["Mở đăng ký", "Đang học", "Hoàn thành"]:
+            if status_map.get(s, 0) > 0:
+                labels.append(s)
+                sizes.append(status_map.get(s, 0))
+        # If none found, take whatever keys exist
+        if not labels:
+            for k, v in status_map.items():
+                labels.append(k)
+                sizes.append(v)
+        if not labels:
+            labels = ["Không có dữ liệu"]
+            sizes = [1]
 
-        ax.pie(
+        enrollment_summary = dept.get("enrollment_summary", {})
+        total_enrollment = enrollment_summary.get("total_enrollment", 0)
+        total_capacity = enrollment_summary.get("total_capacity", 0)
+        utilization = enrollment_summary.get("utilization_rate", round((total_enrollment / total_capacity * 100) if total_capacity > 0 else 0, 1))
+        full = enrollment_summary.get("full_classes", 0)
+        under = enrollment_summary.get("under_enrolled_classes", 0)
+        well = enrollment_summary.get("well_enrolled_classes", 0)
+        total_classes = dept.get("class_summary", {}).get("total_classes", sum(sizes))
+
+        # layout: left donut, right top: SV/GV, right bottom: KPI bars
+        fig = plt.figure(figsize=(12, 7), constrained_layout=True)
+        gs = fig.add_gridspec(2, 3, width_ratios=[1.2, 1, 1])
+        ax_pie = fig.add_subplot(gs[:, 0])
+        ax_sv_gv = fig.add_subplot(gs[0, 1:])
+        ax_kpi = fig.add_subplot(gs[1, 1:])
+
+        # Donut
+        cmap = cm.get_cmap("tab20")
+        color_palette = [cmap(i) for i in range(len(labels))]
+        wedges, texts, autotexts = ax_pie.pie(
             sizes,
             labels=labels,
             autopct=lambda p: f"{p:.0f}%" if p > 0 else "",
-            colors=colors_list,
             startangle=90,
+            pctdistance=0.75,
+            colors=color_palette,
             textprops={"fontsize": 11}
         )
-        ax.set_title(
-            f"Phân bố trạng thái lớp học - {dept['department_info']['department_name']} "
-            f"({semester or ''} - {academic_year or ''})",
-            fontsize=14,
-            fontweight="bold"
-        )
+        centre = plt.Circle((0, 0), 0.45, color="white")
+        ax_pie.add_artist(centre)
+        ax_pie.set_title(f"Phân bố trạng thái lớp - {dept_name}\nTổng lớp: {total_classes}", fontsize=14, fontweight="bold")
 
-    plt.tight_layout()
+        # SV vs GV if available (we can derive from class_details counts or API)
+        # Try to infer from class_details total enrollment per class vs capacity
+        sv_total = sum([c.get("current_enrollment", 0) for c in dept.get("class_details", [])]) if dept.get("class_details") else total_enrollment
+        # teachers count unknown here (not returned in class_offering endpoint), skip if not available
+        # show enrollment vs capacity bars
+        ax_sv_gv.bar(["Tổng đăng ký", "Tổng sức chứa"], [total_enrollment, total_capacity], color=["#6CA0DC", "#C5D6E8"])
+        ax_sv_gv.set_title(f"Đăng ký vs Sức chứa (Tỉ lệ: {utilization}%)", fontsize=12)
+        for i, val in enumerate([total_enrollment, total_capacity]):
+            ax_sv_gv.text(i, val + max(1, val * 0.02), f"{int(val)}", ha="center", va="bottom", fontsize=10)
+
+        # KPI bars (full / well / under)
+        k_labels = ["Đầy", "Vừa đủ/Khá", "Thiếu sinh viên"]
+        k_values = [full, well, under]
+        y_pos = np.arange(len(k_labels))
+        ax_kpi.barh(y_pos, k_values, color=["#2ca02c", "#f0ad4e", "#d62728"])
+        for i, v in enumerate(k_values):
+            ax_kpi.text(v + 0.5, y_pos[i], f"{int(v)}", va="center", fontsize=10)
+        ax_kpi.set_yticks(y_pos)
+        ax_kpi.set_yticklabels(k_labels)
+        ax_kpi.invert_yaxis()
+        ax_kpi.set_title("Tình trạng lớp (KPI)", fontsize=12)
+
+        plt.suptitle(f"Thống kê lớp học - {dept_name} ({semester or ''} {academic_year or ''})", fontsize=15, fontweight="bold")
 
     # Lưu ảnh vào buffer
     buf = io.BytesIO()
-    plt.savefig(buf, format="png", dpi=150)
-    plt.close(fig)
+    plt.savefig(buf, format="png", dpi=160)
+    plt.close("all")
     buf.seek(0)
     image_bytes = buf.getvalue()
-
-    # Encode base64
     img_base64 = base64.b64encode(image_bytes).decode("utf-8")
 
     # Lưu file local
     os.makedirs(GENERATED_THUMBNAILS_DIR, exist_ok=True)
     filepath = os.path.join(GENERATED_THUMBNAILS_DIR, filename)
-    # with open(filepath, "wb") as f:
-    #     f.write(image_bytes)
+    with open(filepath, "wb") as f:
+        f.write(image_bytes)
 
     response = {
         "success": True,
@@ -1090,10 +1316,9 @@ async def get_manager_class_offering_statistics(token: str, department_id: Optio
         "filepath": filepath,
         "artifact_filename": filename,
         "artifact_version": None,
-        "summary": data["data"]["overall_summary"]
+        "summary": overall_summary
     }
     return response
-
 @mcp.tool()
 async def get_manager_comprehensive_system_report(token: str, semester: Optional[str] = None, academic_year: Optional[str] = None) -> Dict:
     """
@@ -1104,7 +1329,7 @@ async def get_manager_comprehensive_system_report(token: str, semester: Optional
     
     Args:
         token: Token xác thực (required).
-        semester: Học kỳ (optional).
+        semester: Học kỳ (optional) chỉ nhận 3 tham số hãy từ prompt người dùng chọn tham số Args hợp lý là HOCKY1 | HOCKY2 | HOCKYHE .
         academic_year: Năm học (optional).
     """
     import matplotlib.gridspec as gridspec
@@ -1289,8 +1514,8 @@ async def get_manager_comprehensive_system_report(token: str, semester: Optional
     # Save local copy
     os.makedirs(GENERATED_THUMBNAILS_DIR, exist_ok=True)
     filepath = os.path.join(GENERATED_THUMBNAILS_DIR, filename)
-    # with open(filepath, "wb") as f:
-    #     f.write(image_bytes)
+    with open(filepath, "wb") as f:
+        f.write(image_bytes)
 
     response = {
         "success": True,
@@ -1302,31 +1527,6 @@ async def get_manager_comprehensive_system_report(token: str, semester: Optional
         "summary": payload
     }
     return response
-
-@mcp.tool()
-async def post_manager_export_department_report(token: str, department_id: int, semester: Optional[str] = None, academic_year: Optional[str] = None, format: str = "json") -> Dict:
-    """
-    Xuất dữ liệu chi tiết theo khoa.
-    Hỗ trợ filter theo học kỳ/năm học.
-    Format JSON/CSV.
-    Dữ liệu đầy đủ: SV, GV, môn học, lớp học.
-    
-    Args:
-        token: Token xác thực (required).
-        department_id: ID khoa (required).
-        semester: Học kỳ (optional).
-        academic_year: Năm học (optional).
-        format: Định dạng xuất (json/csv, default: json).
-    """
-    with open("profile_result.txt", "w", encoding="utf-8") as f:
-        f.write(json.dumps(token, ensure_ascii=False, indent=2))
-    data = {
-        "department_id": department_id,
-        "semester": semester,
-        "academic_year": academic_year,
-        "format": format
-    }
-    return await make_api_request("POST", "/manager/export-department-report", data=data, token=token)
 
 # --- MCP Server Runner ---
 async def run_mcp_stdio_server():

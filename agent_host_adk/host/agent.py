@@ -27,8 +27,12 @@ from google.genai import types
 from typing import Any, AsyncIterable, List, Optional  # Đảm bảo import MappingProxyType nếu bạn dùng Python 3.9 trở lên
 from google.adk.sessions import DatabaseSessionService 
 import os
-
+from google.adk.models import LlmResponse, LlmRequest
+from google.adk.agents.callback_context import CallbackContext
 from .remote_agent_connection import RemoteAgentConnections
+import logging
+import base64
+
 #######################################################################################
 #############                                                             #############
 #############                                                             #############
@@ -43,6 +47,98 @@ llm_model = os.getenv("LLM_MODEL")
 db_url = os.getenv("DB_URL")
 
 session_service = DatabaseSessionService(db_url=db_url) 
+
+IMAGE_URL = os.getenv("IMAGE_URL","http://localhost:9000/image/")
+async def store_file_temporarily(file:str ) -> str:
+    """Store a File from base 64 to ."""
+    try:
+        image_bytes = base64.b64decode(file.get("bytes"))
+        id = uuid.uuid4()
+        # Lưu thành file PNG
+        with open(f"host/imgs/baocao_{id}.png", "wb") as f:
+            f.write(image_bytes)
+        return IMAGE_URL + f"baocao_{id}.png"
+    except Exception as e:
+        print(f"Error storing file temporarily: {e}")
+        return None
+
+
+async def before_model_callback(
+    callback_context: CallbackContext, llm_request: LlmRequest
+) -> Optional[LlmResponse]:
+    HISTORY_LENGTH = int(os.environ.get("HISTORY_LENGTH","5"))
+
+    if not llm_request.contents:
+        return None
+
+    user_indices = [
+        i
+        for i, item in enumerate(llm_request.contents)
+        if item.role == "user" and item.parts and item.parts[0].text
+    ]
+
+    if not user_indices:
+        return None
+
+    hist = HISTORY_LENGTH + 1
+    keep_turns = min(hist, len(user_indices))
+    start_user_idx = user_indices[-keep_turns]
+
+    temp_context = llm_request.contents[start_user_idx:]
+    filtered_items = [
+    item for item in temp_context
+    if hasattr(item.parts[0], "text") and item.parts[0].text
+    ]
+
+    llm_request.contents = filtered_items
+    return None
+
+
+# def bmc_trim_llm_request(
+#     callback_context: CallbackContext, llm_request: LlmRequest
+# ) -> Optional[LlmResponse]:
+
+#     max_prev_user_interactions = int(os.environ.get("MAX_PREV_USER_INTERACTIONS","5"))
+
+#     # Everytime the entire new / full list comes from Execution Logic
+#     logging.info(f"Number of contents going to LLM - {len(llm_request.contents)}, MAX_PREV_USER_INTERACTIONS = {max_prev_user_interactions}")
+
+#     temp_processed_list = []
+    
+#     if max_prev_user_interactions == -1:
+#         return None 
+#     else:
+#         user_message_count = 0
+#         # Iterate in reverse order
+#         for i in range(len(llm_request.contents) - 1, -1, -1):
+#             item = llm_request.contents[i]
+            
+#             # Check if the item is a user message and has text content and is not a transfer to agent content
+#             if item.role == "user" and item.parts[0] and item.parts[0].text and item.parts[0].text != "For context:":
+#                 logging.info(f"Encountered a user message => {item.parts[0].text}")
+#                 user_message_count += 1
+
+#             if user_message_count > max_prev_user_interactions:
+#                 logging.info(f"Breaking at user_message_count => {user_message_count}")
+#                 temp_processed_list.append(item) # make sure we add this user message.
+#                 break
+            
+#             temp_processed_list.append(item)
+
+#         # Reverse the temp_processed_list to restore the original chronological order
+#         final_list = temp_processed_list[::-1]
+
+#         # If user_message_count didn't reach the limit, the list remains unchanged.
+#         if user_message_count < max_prev_user_interactions:
+#             logging.info("User message count did not reach the allowed limit. List remains unchanged.")
+#         else:
+#             logging.info(f"User message count reached {max_prev_user_interactions}. List truncated.")
+#             llm_request.contents = final_list
+
+
+#     # we still want LLM to be called, only sometimes with reduced number of contents.    
+#     return None 
+
 class HostAgent:
     """The Host agent."""
 
@@ -67,6 +163,7 @@ class HostAgent:
                 try:
                     
                     card = await card_resolver.get_agent_card()
+                    card.url = address
                     remote_connection = RemoteAgentConnections(
                         agent_card=card, agent_url=address
                     )
@@ -105,7 +202,7 @@ class HostAgent:
         instance = HostAgent(name)
         await instance._async_init_components(remote_agent_addresses)
         return instance
-
+    
     def create_agent(self,name) -> Agent:
         return Agent(
             model=llm_model,
@@ -115,6 +212,9 @@ class HostAgent:
             tools=[
                 self.send_message,
             ],
+            before_model_callback=before_model_callback
+            
+            # before_agent_callback=
         )
 
     def root_instruction(self, context: ReadonlyContext) -> str:
@@ -129,7 +229,7 @@ class HostAgent:
             - Chỉ gọi agent có trong <Available Agents>. Không tự trả lời câu hỏi.
             - Yêu cầu trả lời (ngôn ngữ {lang}):
             - Nếu tất cả agent sau quá trình gọi tới đều không có dữ liệu, báo: "Không tìm thấy thông tin phù hợp trong hệ thống.".
-
+            - Nếu người dùng gọi tới hỏi những câu hỏi cơ bản như giới thiệu chào hỏi thì bạn có thể trả lời trực tiếp.
             Quy tắc xử lý:
             1) Phân tích câu hỏi → xác định từ khóa.
             2) Đọc kỹ <Available Agents> → chọn agent phù hợp.
@@ -271,7 +371,8 @@ class HostAgent:
                     resp.extend(artifact["parts"])
                     tool_context.actions.skip_summarization = True
                     for part in artifact["parts"]:
-                        if part.get("file"):
+                       if part.get("file"):
                             tool_context.actions.skip_summarization = True
-                            pass
+                            part["file"] = await store_file_temporarily(part["file"])
+                            
         return resp

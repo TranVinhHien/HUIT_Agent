@@ -23,4 +23,4 @@ COPY . .
 EXPOSE 10003
 
 # Run the application
-CMD ["uv", "run", "--active", "."]
+CMD ["python", "__main__.py"]

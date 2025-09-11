@@ -38,7 +38,7 @@ def main():
     # Ensure Windows can spawn subprocesses from asyncio (needed for MCP stdio client)
     if sys.platform.startswith("win"):
         asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
-    host = "localhost"
+    host = "0.0.0.0"
     port = int(os.getenv("PORT", 10001))  # ép về int
     APP_NAME = "school_statistics_agent"
     agent_info = get_agent_info(APP_NAME)
@@ -103,6 +103,6 @@ def main():
         logger.error(f"An error occurred during server startup: {e}")
         exit(1)
 
-
 if __name__ == "__main__":
-    main()
+    app = main()
+    uvicorn.run("__main__:app", host="0.0.0.0", port=10001, reload=True)

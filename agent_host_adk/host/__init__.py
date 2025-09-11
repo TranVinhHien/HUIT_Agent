@@ -1,7 +1,6 @@
 from fastapi import FastAPI, HTTPException,Request
 from pydantic import BaseModel
 from typing import Optional, Dict, Any
-
 from .agent import HostAgent, session_service
 import uuid
 from google.genai import types
@@ -18,15 +17,15 @@ import jwt
 load_dotenv()
 AGENT_NAME = "Host_Agent"
 IMAGE_DIR = os.getenv("IMAGE_DIR","http://localhost:9000/image/")
-# friend_agent_urls = get_agent_urls()
-friend_agent_urls = [
-    # "http://192.168.1.163:3636"
-    "http://localhost:10001",
-    "http://localhost:10002",
-    "http://localhost:10003"
-    # "http://192.168.1.136:3636"
-    # "https://ai-agent.bitech.vn/rag"
-]
+friend_agent_urls = get_agent_urls()
+# friend_agent_urls = [
+#     # "http://192.168.1.163:3636"
+#     "http://localhost:10001",
+#     "http://localhost:10002",
+#     "http://localhost:10003"
+#     # "http://192.168.1.136:3636"
+#     # "https://ai-agent.bitech.vn/rag"
+# ]
 print("initializing host agent")
 host = None
 
@@ -207,13 +206,14 @@ async def send_message(request: SendMessageRequest,raw_request: Request):
         )
         
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to process message: {str(e)}"
+        return SendMessageResponse(
+            success=True,
+            response={"text": f"Lỗi hệ thống. Vui lòng thử lại: {str(e)}"},
+            session_id=session_id
         )
 
 @app.post("/api/message_stream", response_model=SendMessageResponse)
-async def send_message(request: SendMessageRequest,raw_rfequest: Request):
+async def send_message(request: SendMessageRequest,raw_request: Request):
     """API để gửi tin nhắn cho agent"""
     headers = raw_request.headers
     token = headers.get("Authorization", "").replace("Bearer ", "")

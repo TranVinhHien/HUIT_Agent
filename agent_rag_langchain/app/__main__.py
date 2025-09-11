@@ -29,7 +29,7 @@ def main():
     """Starts RagSchoolInfo Agent server."""
     APP_NAME = "RagSchoolInfo"
     agent_info = get_agent_info(APP_NAME)
-    host = "localhost"   # localhost
+    host = "0.0.0.0"   # localhost
     port = int(os.getenv("PORT",10002))
     try:
         if not os.getenv("GOOGLE_API_KEY"):
